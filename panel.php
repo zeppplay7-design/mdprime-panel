@@ -1,11 +1,13 @@
 <?php
-/* MDPRIME REFERIDOS VIP - V6 PREMIUM CRM - RENDER + RAILWAY */
+/* MDPRIME REFERIDOS VIP - V7 FIX GUARDADO REFERIDOS - RENDER + RAILWAY */
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 // Zona horaria fija para que las caducidades se calculen con fecha real de España
 date_default_timezone_set('Europe/Madrid');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 /* ===== PROTECCIÓN DE ACCESO MDPRIME - SOLO CONTRASEÑA ===== */
 session_start();
@@ -178,13 +180,108 @@ foreach([['COBRE',4,30,45,65],['PLATA',8,27,40,58],['ORO',12,25,37,52],['PLATINU
 $today=date('Y-m-d');
 $pdo->prepare("UPDATE referidos SET estado='Inactivo' WHERE fecha_caducidad IS NOT NULL AND fecha_caducidad < ?")->execute([$today]);
 $msg='';
+
+/* ===== DEBUG REFERIDO MDPRIME =====
+   Uso: panel.php?debug_ref=usuario
+   Muestra si un referido está realmente guardado en Railway. */
+if (isset($_GET['debug_ref']) && $_GET['debug_ref'] !== '') {
+  header('Content-Type: text/plain; charset=utf-8');
+
+  $q = clean($_GET['debug_ref']);
+  echo "MDPRIME PANEL DEBUG REFERIDO\n";
+  echo "━━━━━━━━━━━━━━━━━━━━━━\n";
+  echo "Buscado: ".$q."\n\n";
+
+  try {
+    $stmt = $pdo->prepare("
+      SELECT r.id, r.cliente_id, r.nombre, r.fecha_alta, r.fecha_caducidad, r.estado, c.nombre AS referente
+      FROM referidos r
+      LEFT JOIN clientes c ON c.id = r.cliente_id
+      WHERE LOWER(TRIM(r.nombre)) = LOWER(TRIM(?))
+         OR REPLACE(LOWER(TRIM(r.nombre)), ' ', '') = REPLACE(LOWER(TRIM(?)), ' ', '')
+      ORDER BY r.id DESC
+      LIMIT 20
+    ");
+    $stmt->execute([$q,$q]);
+    $rows = $stmt->fetchAll();
+
+    if (!$rows) {
+      echo "❌ No aparece en Railway.\n";
+      echo "Últimos 10 referidos guardados:\n\n";
+      $last = $pdo->query("SELECT r.id, r.nombre, r.cliente_id, r.fecha_caducidad, r.estado, c.nombre AS referente FROM referidos r LEFT JOIN clientes c ON c.id=r.cliente_id ORDER BY r.id DESC LIMIT 10")->fetchAll();
+      foreach ($last as $r) {
+        echo "#".$r['id']." · ".$r['nombre']." · referente: ".($r['referente'] ?: 'Sin referente')." · caduca: ".$r['fecha_caducidad']." · estado: ".$r['estado']."\n";
+      }
+      exit;
+    }
+
+    echo "✅ Encontrado en Railway:\n\n";
+    foreach ($rows as $r) {
+      echo "#".$r['id']."\n";
+      echo "Nombre: ".$r['nombre']."\n";
+      echo "cliente_id: ".$r['cliente_id']."\n";
+      echo "Referente: ".($r['referente'] ?: 'Sin referente')."\n";
+      echo "Alta: ".$r['fecha_alta']."\n";
+      echo "Caduca: ".$r['fecha_caducidad']."\n";
+      echo "Estado: ".$r['estado']."\n";
+      echo "━━━━━━━━━━━━━━━━━━━━━━\n";
+    }
+    exit;
+
+  } catch(Throwable $e) {
+    echo "❌ Error debug:\n".$e->getMessage()."\n";
+    exit;
+  }
+}
+
+
 if($_SERVER['REQUEST_METHOD']==='POST'){
   $a=$_POST['action']??'';
   try{
     if($a==='add_cliente'){$nombre=clean($_POST['nombre']??'');$contacto=clean($_POST['contacto']??'');$telegram=clean($_POST['telegram']??'');$telegram=ltrim($telegram,'@');$nota=clean($_POST['nota']??'');if($nombre!==''){$pdo->prepare("INSERT INTO clientes(nombre,contacto,telefono,telegram,nota) VALUES(?,?,?,?,?)")->execute([$nombre,$contacto,$contacto,$telegram,$nota]);$msg='Cliente añadido.';}}
     if($a==='update_cliente'){$id=(int)($_POST['cliente_id']??0);$nombre=clean($_POST['nombre']??'');$contacto=clean($_POST['contacto']??'');$telegram=clean($_POST['telegram']??'');$telegram=ltrim($telegram,'@');$nota=clean($_POST['nota']??'');if($id&&$nombre!==''){$pdo->prepare("UPDATE clientes SET nombre=?,contacto=?,telefono=?,telegram=?,nota=? WHERE id=?")->execute([$nombre,$contacto,$contacto,$telegram,$nota,$id]);$msg='Perfil del referente actualizado.';}}
     if($a==='delete_cliente'){$id=(int)($_POST['cliente_id']??0);if($id){$pdo->prepare("DELETE FROM referidos WHERE cliente_id=?")->execute([$id]);$pdo->prepare("DELETE FROM clientes WHERE id=?")->execute([$id]);$msg='Referente eliminado junto con todos sus referidos.';}}
-    if($a==='add_referido'){$cid=(int)($_POST['cliente_id']??0);$nombre=clean($_POST['nombre']??'');$alta=dnull($_POST['fecha_alta']??'')?:$today;$cad=dnull($_POST['fecha_caducidad']??'');$estado=clean($_POST['estado']??'Activo');$nota=clean($_POST['nota']??'');if($cad&&$cad<$today)$estado='Inactivo';if($cid&&$nombre!==''){$pdo->prepare("INSERT INTO referidos(cliente_id,nombre,fecha_alta,fecha_caducidad,estado,nota) VALUES(?,?,?,?,?,?)")->execute([$cid,$nombre,$alta,$cad,$estado,$nota]);$msg='Referido añadido.';}}
+    if($a==='add_referido'){
+      $cid=(int)($_POST['cliente_id']??0);
+      $nombre=clean($_POST['nombre']??'');
+      $alta=dnull($_POST['fecha_alta']??'')?:$today;
+      $cad=dnull($_POST['fecha_caducidad']??'');
+      $estado=clean($_POST['estado']??'Activo');
+      $nota=clean($_POST['nota']??'');
+
+      if($cad&&$cad<$today)$estado='Inactivo';
+
+      if(!$cid){
+        throw new Exception('No se recibió el ID del referente. No se ha guardado el referido.');
+      }
+
+      if($nombre===''){
+        throw new Exception('El nombre del referido está vacío. No se ha guardado.');
+      }
+
+      $checkCliente=$pdo->prepare("SELECT id,nombre FROM clientes WHERE id=? LIMIT 1");
+      $checkCliente->execute([$cid]);
+      $clienteOk=$checkCliente->fetch();
+
+      if(!$clienteOk){
+        throw new Exception('El referente seleccionado no existe en Railway. ID: '.$cid);
+      }
+
+      $insertRef=$pdo->prepare("INSERT INTO referidos(cliente_id,nombre,fecha_alta,fecha_caducidad,estado,nota) VALUES(?,?,?,?,?,?)");
+      $insertRef->execute([$cid,$nombre,$alta,$cad,$estado,$nota]);
+
+      $newId=(int)$pdo->lastInsertId();
+
+      $verify=$pdo->prepare("SELECT id,nombre,cliente_id FROM referidos WHERE id=? LIMIT 1");
+      $verify->execute([$newId]);
+      $rowVerify=$verify->fetch();
+
+      if(!$newId || !$rowVerify){
+        throw new Exception('El panel intentó guardar el referido, pero Railway no devolvió confirmación.');
+      }
+
+      $msg='Referido añadido correctamente. ID Railway: '.$newId.' · Usuario: '.$rowVerify['nombre'].' · Referente: '.$clienteOk['nombre'];
+    }
     if($a==='update_fecha_inactivo'){
       $id=(int)($_POST['ref_id']??0);
       $cad=dnull($_POST['fecha_caducidad']??'');
