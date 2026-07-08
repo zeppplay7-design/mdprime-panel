@@ -1,5 +1,5 @@
 <?php
-/* MDPRIME REFERIDOS VIP - V7 FIX GUARDADO REFERIDOS - RENDER + RAILWAY */
+/* MDPRIME REFERIDOS VIP - V8 FIX ALTA REFERIDOS - RENDER + RAILWAY */
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -243,20 +243,30 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     if($a==='delete_cliente'){$id=(int)($_POST['cliente_id']??0);if($id){$pdo->prepare("DELETE FROM referidos WHERE cliente_id=?")->execute([$id]);$pdo->prepare("DELETE FROM clientes WHERE id=?")->execute([$id]);$msg='Referente eliminado junto con todos sus referidos.';}}
     if($a==='add_referido'){
       $cid=(int)($_POST['cliente_id']??0);
-      $nombre=clean($_POST['nombre']??'');
-      $alta=dnull($_POST['fecha_alta']??'')?:$today;
-      $cad=dnull($_POST['fecha_caducidad']??'');
+
+      // Compatibilidad con distintos formularios del panel.
+      $nombre=clean($_POST['nombre'] ?? ($_POST['nombre_referido'] ?? ''));
+      $alta=dnull($_POST['fecha_alta'] ?? ($_POST['fecha'] ?? ''))?:$today;
+      $cad=dnull($_POST['fecha_caducidad'] ?? ($_POST['caduca'] ?? ''));
       $estado=clean($_POST['estado']??'Activo');
       $nota=clean($_POST['nota']??'');
 
       if($cad&&$cad<$today)$estado='Inactivo';
 
-      if(!$cid){
-        throw new Exception('No se recibió el ID del referente. No se ha guardado el referido.');
-      }
-
       if($nombre===''){
         throw new Exception('El nombre del referido está vacío. No se ha guardado.');
+      }
+
+      // Si por cualquier motivo el cliente_id no llega, intentamos recuperarlo desde return_modal/open.
+      if(!$cid){
+        $modalRaw = clean($_POST['return_modal'] ?? ($_GET['open'] ?? ''));
+        if(preg_match('/^m(\d+)$/', $modalRaw, $m)){
+          $cid = (int)$m[1];
+        }
+      }
+
+      if(!$cid){
+        throw new Exception('No se recibió el ID del referente. No se ha guardado el referido.');
       }
 
       $checkCliente=$pdo->prepare("SELECT id,nombre FROM clientes WHERE id=? LIMIT 1");
@@ -265,6 +275,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
       if(!$clienteOk){
         throw new Exception('El referente seleccionado no existe en Railway. ID: '.$cid);
+      }
+
+      // Evitar duplicados exactos en el mismo referente.
+      $dup=$pdo->prepare("SELECT id FROM referidos WHERE cliente_id=? AND LOWER(TRIM(nombre))=LOWER(TRIM(?)) LIMIT 1");
+      $dup->execute([$cid,$nombre]);
+      if($dup->fetch()){
+        throw new Exception('Ese referido ya existe para este referente: '.$nombre);
       }
 
       $insertRef=$pdo->prepare("INSERT INTO referidos(cliente_id,nombre,fecha_alta,fecha_caducidad,estado,nota) VALUES(?,?,?,?,?,?)");
@@ -1305,7 +1322,7 @@ $copyAct .= "━━━━━━━━━━━━━━━━━━\nTOTAL ACTIV
 $copyIna .= "━━━━━━━━━━━━━━━━━━\nTOTAL INACTIVOS: ".$inaCountTxt."\n━━━━━━━━━━━━━━━━━━";
 ?>
 <div class="copyBox"><h3>📋 Copiar referidos</h3><div class="copyButtons"><button class="btn dark" type="button" data-copy="<?=h(base64_encode($copyAll))?>" onclick="mdCopyBtn(this)">📋 Copiar todos</button><button class="btn dark" type="button" data-copy="<?=h(base64_encode($copyAct))?>" onclick="mdCopyBtn(this)">✅ Copiar activos</button><button class="btn dark" type="button" data-copy="<?=h(base64_encode($copyIna))?>" onclick="mdCopyBtn(this)">❌ Copiar inactivos</button><button class="btn green" type="button" data-copy="<?=h(base64_encode($copyAll))?>" onclick="mdTelegramBtn(this)">✈️ Telegram</button></div></div>
-<h3 id="add_<?=$mid?>">Añadir referido</h3><form method="post" style="display:grid;gap:9px"><input type="hidden" name="action" value="add_referido"><input type="hidden" name="cliente_id" value="<?=$c['id']?>"><input name="nombre" placeholder="Nombre referido" required><label>Fecha alta</label><input type="date" name="fecha_alta" value="<?=$today?>"><label>Fecha caducidad</label><input type="date" name="fecha_caducidad"><select name="estado"><option>Activo</option><option>Inactivo</option></select><input name="nota" placeholder="Nota del referido"><button class="btn green">Guardar referido</button>
+<h3 id="add_<?=$mid?>">Añadir referido</h3><form method="post" style="display:grid;gap:9px"><input type="hidden" name="action" value="add_referido"><input type="hidden" name="cliente_id" value="<?=$c['id']?>"><input type="hidden" name="return_modal" value="m<?=$c['id']?>"><input name="nombre" placeholder="Nombre referido" required><label>Fecha alta</label><input type="date" name="fecha_alta" value="<?=$today?>"><label>Fecha caducidad</label><input type="date" name="fecha_caducidad"><select name="estado"><option>Activo</option><option>Inactivo</option></select><input name="nota" placeholder="Nota del referido"><button class="btn green">Guardar referido</button>
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">
 <button type="button" class="btn dark small" onclick="mdSetMonths(this,3)">✅ +3 Meses</button>
 <button type="button" class="btn dark small" onclick="mdSetMonths(this,6)">✅ +6 Meses</button>
