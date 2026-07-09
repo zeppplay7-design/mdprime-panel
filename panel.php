@@ -1,5 +1,5 @@
 <?php
-/* MDPRIME PANEL V15 - BUSCADOR GLOBAL CLICK A FICHA */
+/* MDPRIME PANEL V16 - BUSCADOR GLOBAL CLICK REAL */
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -1285,7 +1285,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
     <h2>🔎 BUSCADOR GLOBAL MDPRIME</h2>
     <span class="mdGlobalProBadge">Referentes · Referidos VIP · Clientes normales</span>
   </div>
-  <div class="note">Busca por nombre, Telegram, WhatsApp, contacto, nota o fecha de caducidad. Pulsa un resultado para abrir su ficha y editarlo.</div>
+  <div class="note">Busca por nombre, Telegram, WhatsApp, contacto, nota o fecha de caducidad. Pulsa un resultado para ir directo a su tarjeta.</div>
 
   <div class="mdGlobalProGrid">
     <div>
@@ -1788,7 +1788,9 @@ const mdGlobalProNormalesData = [
 
 
 
-<script id="mdGlobalProJsV14">
+
+
+<script id="mdGlobalProJsV16">
 function mdProNorm(v){
   return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 }
@@ -1803,54 +1805,90 @@ function mdProEsc(s){
 function mdProMatch(item,q){
   return mdProNorm(Object.values(item).join(' ')).indexOf(q) !== -1;
 }
-function mdProGo(id, modalId, nombre){
-  if(modalId){
-    var modal = document.getElementById(modalId);
-    if(modal){ modal.classList.add('open'); }
+function mdProFindByText(root, selectors, text){
+  var q = mdProNorm(text);
+  if(!q) return null;
+  var items = (root || document).querySelectorAll(selectors);
+  for(var i=0;i<items.length;i++){
+    if(mdProNorm(items[i].innerText).indexOf(q) !== -1){
+      return items[i];
+    }
+  }
+  return null;
+}
+function mdProHighlight(el){
+  if(!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  el.classList.add('mdGlobalHighlight');
+  setTimeout(function(){ el.classList.remove('mdGlobalHighlight'); }, 3500);
+}
+function mdProOpenEdit(el){
+  if(!el) return;
+
+  // Cliente normal
+  if(el.classList.contains('normalCard')){
+    el.classList.add('editing');
+    mdProHighlight(el);
+    return;
   }
 
-  setTimeout(function(){
-    var el = id ? document.getElementById(id) : null;
+  // Referido VIP
+  if(el.classList.contains('ref')){
+    el.classList.add('edit');
+    mdProHighlight(el);
+    return;
+  }
 
-    if(!el && id && id.indexOf('ref') === 0){
-      el = document.querySelector('[data-ref-id="'+id.replace('ref','')+'"]');
-    }
+  // Referente: intentar abrir su modal/ficha usando botones internos
+  var btnPerfil = el.querySelector('.btnPerfil, [onclick*="mdPerfil"], [onclick*="openModal"], [onclick*="modal"], button');
+  if(btnPerfil){
+    try{ btnPerfil.click(); }catch(e){}
+  }
 
-    // Fallback fuerte: si no hay id, busca dentro del modal o del documento por el nombre.
-    if(!el && nombre){
-      var zona = modalId ? document.getElementById(modalId) : document;
-      if(zona){
-        var q = mdProNorm(nombre);
-        var posibles = zona.querySelectorAll('.ref, .client, .normalCard, article');
-        for(var i=0;i<posibles.length;i++){
-          if(mdProNorm(posibles[i].innerText).indexOf(q) !== -1){
-            el = posibles[i];
-            break;
-          }
-        }
-      }
-    }
-
-    if(el){
-      el.scrollIntoView({behavior:'smooth',block:'center'});
-      el.classList.add('mdGlobalHighlight');
-
-      // Abrir caja de editar si la ficha tiene botón/estado de edición.
-      if(el.classList.contains('normalCard')){
-        el.classList.add('editing');
-      }
-      if(el.classList.contains('ref')){
-        el.classList.add('edit');
-      }
-
-      setTimeout(function(){ el.classList.remove('mdGlobalHighlight'); }, 3200);
-    }
-  }, modalId ? 350 : 80);
+  mdProHighlight(el);
 }
-function mdProItem(title, meta, typeTxt, typeClass, id, modal){
+function mdProGo(id, modalId, nombre, tipo){
+  var el = null;
+
+  // 1) Si hay modal de referente, abrirlo primero.
+  if(modalId){
+    var modal = document.getElementById(modalId);
+    if(modal){ 
+      modal.classList.add('open'); 
+      setTimeout(function(){
+        var dentro = mdProFindByText(modal, '.ref, article, .normalCard, .client', nombre);
+        if(dentro){
+          mdProOpenEdit(dentro);
+        }else{
+          mdProHighlight(modal);
+        }
+      }, 350);
+      return;
+    }
+  }
+
+  // 2) Intentar por ID directo.
+  if(id){
+    el = document.getElementById(id);
+  }
+
+  // 3) Si no hay ID, buscar por texto en todas las fichas visibles.
+  if(!el && nombre){
+    if(tipo === 'normal'){
+      el = mdProFindByText(document, '.normalCard, article', nombre);
+    }else if(tipo === 'referente'){
+      el = mdProFindByText(document, '.client, article', nombre);
+    }else{
+      el = mdProFindByText(document, '.ref, article', nombre);
+    }
+  }
+
+  mdProOpenEdit(el);
+}
+function mdProItem(title, meta, typeTxt, typeClass, id, modal, tipo){
   var div = document.createElement('div');
   div.className = 'mdGlobalProItem';
-  div.onclick = function(){ mdProGo(id || '', modal || '', title || ''); };
+  div.onclick = function(){ mdProGo(id || '', modal || '', title || '', tipo || ''); };
 
   div.innerHTML =
     '<b>'+mdProEsc(title)+'</b>' +
@@ -1862,17 +1900,13 @@ function mdProItem(title, meta, typeTxt, typeClass, id, modal){
 function mdProRender(list, containerId, formatter){
   var el = document.getElementById(containerId);
   if(!el) return 0;
-
   el.innerHTML = '';
-
   list.slice(0, 25).forEach(function(item){
     el.appendChild(formatter(item));
   });
-
   if(list.length === 0){
     el.innerHTML = '<div class="note">Sin resultados</div>';
   }
-
   return list.length;
 }
 function mdGlobalProSearch(){
@@ -1887,9 +1921,9 @@ function mdGlobalProSearch(){
     return;
   }
 
-  var referentes = (window.mdGlobalProReferentesData || mdGlobalProReferentesData || []).filter(function(x){return mdProMatch(x,q);});
-  var referidos = (window.mdGlobalProReferidosData || mdGlobalProReferidosData || []).filter(function(x){return mdProMatch(x,q);});
-  var normales = (window.mdGlobalProNormalesData || mdGlobalProNormalesData || []).filter(function(x){return mdProMatch(x,q);});
+  var referentes = (window.mdGlobalProReferentesData || []).filter(function(x){return mdProMatch(x,q);});
+  var referidos = (window.mdGlobalProReferidosData || []).filter(function(x){return mdProMatch(x,q);});
+  var normales = (window.mdGlobalProNormalesData || []).filter(function(x){return mdProMatch(x,q);});
 
   var a = mdProRender(referentes,'mdGlobalProReferentes',function(x){
     return mdProItem(
@@ -1897,8 +1931,9 @@ function mdGlobalProSearch(){
       'Telegram: '+(x.telegram ? '@'+x.telegram : '-')+' · Contacto: '+(x.contacto || '-')+' · Activos: '+(x.activos || '0')+' · Total: '+(x.total || '0'),
       'Referente',
       'refe',
-      x.id,
-      ''
+      x.id || '',
+      '',
+      'referente'
     );
   });
 
@@ -1908,8 +1943,9 @@ function mdGlobalProSearch(){
       'Referente: '+(x.referente || '-')+' · Estado: '+(x.estado || '-')+' · Caduca: '+(x.caduca || 'Sin fecha')+' · Nota: '+(x.nota || '-'),
       'Referido VIP',
       'vip',
-      x.id,
-      x.modal
+      x.id || '',
+      x.modal || '',
+      'referido'
     );
   });
 
@@ -1919,13 +1955,13 @@ function mdGlobalProSearch(){
       'Telegram: '+(x.telegram ? '@'+x.telegram : '-')+' · Contacto: '+(x.contacto || '-')+' · Estado: '+(x.estado || '-')+' · Caduca: '+(x.caduca || 'Sin fecha')+' · Nota: '+(x.nota || '-'),
       'Cliente normal',
       'normal',
-      x.id,
-      ''
+      x.id || '',
+      '',
+      'normal'
     );
   });
 
   var total = a + b + c;
-
   if(results) results.classList.toggle('show', total > 0);
   if(empty) empty.classList.toggle('show', total === 0);
 }
