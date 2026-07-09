@@ -1,5 +1,5 @@
 <?php
-/* MDPRIME PANEL V9 - REFERIDOS VIP + CLIENTES NORMALES */
+/* MDPRIME PANEL V13 - BUSCADOR GLOBAL CRM PRO */
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -1009,6 +1009,127 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
 .normalesForm{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:9px;align-items:end;margin:12px 0}.normalesGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .normalCard{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);border-radius:18px;padding:13px;overflow:visible!important}.normalTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.normalNombre{font-size:18px;font-weight:1000}.normalMeta{color:#cbd5e1;font-size:13px;margin-top:5px;line-height:1.35}.normalActions{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px}.normalEdit{display:none;margin-top:10px;padding:12px;border-top:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.18);border-radius:14px}.normalCard.editing .normalEdit{display:block}
 @media(max-width:980px){.normalesGrid{grid-template-columns:1fr 1fr}.normalesForm{grid-template-columns:1fr 1fr}}@media(max-width:760px){.normalesHead{display:block}.normalesBadge{margin-top:8px}.normalesGrid,.normalesForm{grid-template-columns:1fr!important}.normalActions{grid-template-columns:1fr!important}}
+
+/* ===== BUSCADOR GLOBAL CRM PRO V13 ===== */
+.mdGlobalProPanel{
+  margin:16px 0;
+  padding:16px;
+  border:1px solid rgba(245,197,66,.38);
+  background:linear-gradient(180deg,rgba(17,24,32,.90),rgba(4,8,12,.94));
+  border-radius:22px;
+  box-shadow:0 24px 70px rgba(0,0,0,.35);
+}
+.mdGlobalProHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+.mdGlobalProHead h2{
+  margin:0;
+  font-size:24px;
+}
+.mdGlobalProBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border-radius:999px;
+  padding:9px 13px;
+  background:rgba(245,197,66,.14);
+  border:1px solid rgba(245,197,66,.38);
+  color:#fde68a;
+  font-weight:1000;
+}
+.mdGlobalProGrid{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:10px;
+  align-items:end;
+}
+.mdGlobalProResults{
+  display:none;
+  margin-top:14px;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}
+.mdGlobalProResults.show{
+  display:grid;
+}
+.mdGlobalProGroup{
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.045);
+  border-radius:18px;
+  padding:12px;
+}
+.mdGlobalProGroup h3{
+  margin:0 0 8px;
+  color:#f5c542;
+  font-size:17px;
+}
+.mdGlobalProItem{
+  cursor:pointer;
+  padding:11px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(0,0,0,.20);
+  margin-top:8px;
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.mdGlobalProItem:hover{
+  transform:scale(1.02);
+  border-color:rgba(245,197,66,.45);
+  box-shadow:0 12px 30px rgba(0,0,0,.35);
+}
+.mdGlobalProItem b{
+  display:block;
+  font-size:16px;
+  margin-bottom:5px;
+}
+.mdGlobalProItem small{
+  display:block;
+  color:#cbd5e1;
+  line-height:1.35;
+}
+.mdGlobalProType{
+  display:inline-flex;
+  margin-top:8px;
+  border-radius:999px;
+  padding:6px 9px;
+  font-size:12px;
+  font-weight:1000;
+}
+.mdGlobalProType.refe{background:rgba(245,197,66,.15);color:#fde68a}
+.mdGlobalProType.vip{background:rgba(53,208,79,.14);color:#bbf7d0}
+.mdGlobalProType.normal{background:rgba(31,182,255,.14);color:#bae6fd}
+.mdGlobalProEmpty{
+  display:none;
+  margin-top:10px;
+  padding:12px;
+  border-radius:14px;
+  background:rgba(255,59,48,.12);
+  border:1px solid rgba(255,59,48,.28);
+  color:#fecaca;
+  font-weight:1000;
+}
+.mdGlobalProEmpty.show{display:block}
+.mdGlobalHighlight{
+  outline:3px solid rgba(245,197,66,.72)!important;
+  box-shadow:0 0 0 6px rgba(245,197,66,.18),0 22px 60px rgba(0,0,0,.45)!important;
+  animation:mdGlobalPulse 1.4s ease-in-out 2;
+}
+@keyframes mdGlobalPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.015)}
+}
+@media(max-width:980px){
+  .mdGlobalProResults{grid-template-columns:1fr}
+  .mdGlobalProGrid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .mdGlobalProHead{display:block}
+  .mdGlobalProBadge{margin-top:8px}
+}
 </style>
 <style id="mdPerfilReferenteSoloCss">
 .clientMainActions{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
@@ -1158,9 +1279,43 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
 </style>
 </head><body>
 <div class="app"><aside class="sidebar"><div class="logo">MD<small>PRIME</small></div><nav class="nav"><a class="active" href="#dashboard">🏠 Dashboard</a><a href="#clientes">👥 Clientes</a><a href="#referidos">👥 Referidos</a><a href="#duplicados">🔁 Repetidos</a><a href="#inactivos">❌ Inactivos</a><a href="#addCliente">➕ Añadir Cliente</a><a href="#ranking">🏆 Ranking</a><a href="#niveles">🛡️ Niveles</a><a href="#caducidades">📅 Caducidades</a></nav><div class="quick"><h4>Acceso rápido</h4><a href="#addCliente">👤 Añadir Cliente</a><a href="#ranking">🏆 Ver Ranking</a><form method="post"><input type="hidden" name="action" value="export_json"><button>💾 Exportar Backup</button></form></div></aside><main class="main"><header class="header"><div class="admin">🔒 Privado · <a href="?logout=1" style="color:#f5c542;text-decoration:none">Salir</a></div><h1>PANEL DE REFERIDOS <span>MDPRIME</span></h1><p>Sistema profesional de gestión de clientes y referidos</p></header><?php if($msg): ?><div class="notice"><?=h($msg)?></div><?php endif; ?>
+
+<section class="mdGlobalProPanel" id="mdGlobalProPanel">
+  <div class="mdGlobalProHead">
+    <h2>🔎 BUSCADOR GLOBAL MDPRIME</h2>
+    <span class="mdGlobalProBadge">Referentes · Referidos VIP · Clientes normales</span>
+  </div>
+  <div class="note">Busca por nombre, Telegram, WhatsApp, contacto, nota o fecha de caducidad. Pulsa un resultado para ir directo a su tarjeta.</div>
+
+  <div class="mdGlobalProGrid">
+    <div>
+      <label>Buscar en todo MDPRIME</label>
+      <input id="mdGlobalProInput" type="search" placeholder="Ej: Manuel, @telegram, WhatsApp, cocoloco..." oninput="mdGlobalProSearch()">
+    </div>
+    <button type="button" class="btn dark" onclick="mdGlobalProClear()">❌ Limpiar</button>
+  </div>
+
+  <div id="mdGlobalProResults" class="mdGlobalProResults">
+    <div class="mdGlobalProGroup">
+      <h3>👑 Referentes</h3>
+      <div id="mdGlobalProReferentes"></div>
+    </div>
+    <div class="mdGlobalProGroup">
+      <h3>👥 Referidos VIP</h3>
+      <div id="mdGlobalProReferidos"></div>
+    </div>
+    <div class="mdGlobalProGroup">
+      <h3>👤 Clientes normales</h3>
+      <div id="mdGlobalProNormales"></div>
+    </div>
+  </div>
+
+  <div id="mdGlobalProEmpty" class="mdGlobalProEmpty">No se encontraron resultados.</div>
+</section>
+
 <section class="dashboard" id="dashboard"><div class="center panel"><div class="alerts"><div class="alert">⚠️ Caducan en 3 días <b><?= $caducan7 ?></b></div><div class="alert">🔁 Repetidos <b><?= $totalDuplicadosReferidos ?></b></div><div class="alert">🏆 Cerca de subir <b><?= $nearUpgrade ?></b></div><div class="alert">💎 Platinum <b><?= $platinumCount ?></b></div><div class="alert">📊 Controlados <b><?= $totalRefs ?></b></div></div><div class="stats"><div class="stat"><div class="ico">👤</div><div><b><?= $totalClientes ?></b><span>Clientes totales</span></div></div><div class="stat"><div class="ico">👥</div><div><b><?= $totalRefs ?></b><span>Referidos totales</span></div></div><div class="stat"><div class="ico">✅</div><div><b><?= $totalActivos ?></b><span>Activos <?= $totalRefs? '('.$pctAct.'%)':'' ?></span></div></div><div class="stat"><div class="ico">❌</div><div><b><?= $totalInactivos ?></b><span>Inactivos <?= $totalRefs? '('.(100-$pctAct).'%)':'' ?></span></div></div></div><div class="mid"><div class="level panel"><h3>Nivel actual destacado</h3><div class="levelInner"><div class="medal"><?= $topNivel['icon'] ?></div><div><div class="levelName"><?= h($topNivel['nivel']) ?></div><div><?= $top ? h($top['nombre']).' · '.(int)$top['activos'].' referidos activos' : 'Sin clientes todavía' ?></div></div></div><div style="margin-top:16px;color:#e7edf5"><?= $next ? 'Siguiente nivel: '.h($next['nivel']).' ('.(int)$next['min_activos'].' activos)' : 'Nivel máximo alcanzado' ?></div><div class="progress"><div class="bar" style="--w:<?= $progress ?>%"></div></div></div><div class="donutBox panel"><h3>Referidos por estado</h3><div class="donutWrap"><div class="donut" style="--p:<?= $pctAct ?>"><div class="donutIn"><div><b><?= $totalRefs ?></b><br><span>Total</span></div></div></div><div class="legend"><div><span class="sq g"></span> Activos: <?= $totalActivos ?> <?= $totalRefs?'('.$pctAct.'%)':'' ?></div><div><span class="sq r"></span> Inactivos: <?= $totalInactivos ?> <?= $totalRefs?'('.(100-$pctAct).'%)':'' ?></div></div></div></div></div><div class="bottomGrid"><div class="box panel" id="referidos"><h3>Últimos referidos</h3><table class="miniTable"><thead><tr><th>Nombre</th><th>Fecha</th><th>Estado</th><th>Cliente</th></tr></thead><tbody><?php foreach($latest as $r): ?><tr><td><?=h($r['nombre'])?></td><td><?=h($r['fecha_alta'] ?: '-')?></td><td class="<?= $r['estado']==='Activo'?'activo':'inactivo' ?>"><?=h($r['estado'])?></td><td><?=h($r['cliente_nombre'])?></td></tr><?php endforeach; if(!$latest): ?><tr><td colspan="4">Sin referidos todavía.</td></tr><?php endif; ?></tbody></table></div><div class="box panel" id="ranking"><h3>Ranking visual</h3><div class="rankCards"><?php foreach(array_slice($clientes,0,5) as $i=>$c): ?><div class="rankCard"><div><?= $i==0?'🥇':($i==1?'🥈':($i==2?'🥉':'#'.($i+1))) ?> <strong><?=h($c['nombre'])?></strong></div><span class="gold"><?= (int)$c['activos'] ?> activos</span></div><?php endforeach; if(!$clientes): ?><div class="note">Sin clientes.</div><?php endif; ?></div></div></div></div><aside class="right"><div class="infoCard panel"><h3>Ahora MySQL</h3><div class="mysql">MySQL</div><ul><li><span class="ok">✔</span> Datos seguros y permanentes</li><li><span class="ok">✔</span> Acceso desde cualquier móvil</li><li><span class="ok">✔</span> Niveles automáticos</li></ul></div><div class="infoCard panel" id="caducidades"><h3>Próximas caducidades</h3><div class="expiryList"><?php foreach($soon as $s): ?><div class="expiry"><div><b><?= date('d/m', strtotime($s['fecha_caducidad'])) ?></b><br><?=h($s['nombre'])?></div><span><?=h($s['cliente_nombre'])?></span></div><?php endforeach; if(!$soon): ?><div class="note">Sin caducidades próximas.</div><?php endif; ?></div></div><div class="infoCard panel"><h3>Importación</h3><div style="font-size:50px">🏆</div><h2 style="margin:0"><?= $totalRefs ?> referidos controlados</h2><p class="muted">Clientes, notas, fechas y caducidades guardadas.</p></div></aside></section>
 <form class="formAdd panel" method="post" id="addCliente"><input type="hidden" name="action" value="add_cliente"><div><label>Cliente referente</label><input name="nombre" placeholder="Nombre" required></div><div><label>WhatsApp / Contacto</label><input name="contacto" placeholder="WhatsApp o email"></div><div><label>Telegram referente</label><input name="telegram" placeholder="@usuarioTelegram"></div><div><label>Nota rápida</label><input name="nota" placeholder="Ej: cliente anual, confianza..."></div><button class="btn green">➕ Añadir</button></form>
-<section class="normalesPanel panel" id="clientesNormales"><div class="normalesHead"><h2>👤 CLIENTES NORMALES</h2><span class="normalesBadge">Activos <?=$totalNormalesActivos?> · Inactivos <?=$totalNormalesInactivos?> · Total <?=$totalNormales?></span></div><div class="note">Clientes sin programa de referidos. Precios normales: 3 meses 35€ · 6 meses 55€ · 12 meses 80€.</div><form class="normalesForm" method="post"><input type="hidden" name="action" value="add_normal"><div><label>Cliente normal</label><input name="nombre" placeholder="Usuario" required></div><div><label>Contacto</label><input name="contacto" placeholder="WhatsApp o email"></div><div><label>Telegram</label><input name="telegram" placeholder="@usuario"></div><div><label>Alta</label><input type="date" name="fecha_alta" value="<?=$today?>"></div><div><label>Caduca</label><input type="date" name="fecha_caducidad"></div><button class="btn green">➕ Añadir normal</button><div style="grid-column:1/-1"><label>Nota</label><input name="nota" placeholder="Nota privada"></div></form><div class="normalesGrid"><?php foreach($clientesNormales as $cn): $normalActivo=(($cn['estado']??'')==='Activo' && (empty($cn['fecha_caducidad']) || $cn['fecha_caducidad'] >= $today)); ?><article class="normalCard"><div class="normalTop"><div><div class="normalNombre"><?=h($cn['nombre'])?></div><div class="normalMeta">Alta: <?=h($cn['fecha_alta'] ?: '-')?> · Caduca: <?=h($cn['fecha_caducidad'] ?: 'Sin fecha')?></div><div class="normalMeta">Telegram: <?=!empty($cn['telegram'])?'@'.h($cn['telegram']):'Sin Telegram'?> · Contacto: <?=h(($cn['contacto'] ?: $cn['telefono']) ?: '-')?></div><div class="normalMeta"><?= $cn['nota'] ? h($cn['nota']) : 'Sin nota' ?></div></div><span class="status <?=$normalActivo?'act':'in'?>"><?=$normalActivo?'Activo':'Inactivo'?></span></div><div class="normalActions"><button class="btn dark small" type="button" onclick="this.closest('.normalCard').classList.toggle('editing')">Editar</button><form method="post"><input type="hidden" name="action" value="renew_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><input type="hidden" name="months" value="3"><button class="btn green small">+3 Meses</button></form><form method="post"><input type="hidden" name="action" value="renew_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><input type="hidden" name="months" value="6"><button class="btn green small">+6 Meses</button></form><form method="post"><input type="hidden" name="action" value="renew_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><input type="hidden" name="months" value="12"><button class="btn green small">+12 Meses</button></form><form method="post"><input type="hidden" name="action" value="toggle_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><button class="btn small">Activo/Inactivo</button></form></div><div class="normalEdit"><form method="post" style="display:grid;gap:8px"><input type="hidden" name="action" value="update_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><label>Nombre</label><input name="nombre" value="<?=h($cn['nombre'])?>" required><label>Contacto</label><input name="contacto" value="<?=h($cn['contacto'] ?: $cn['telefono'])?>"><label>Telegram</label><input name="telegram" value="<?=h($cn['telegram'])?>"><label>Alta</label><input type="date" name="fecha_alta" value="<?=h($cn['fecha_alta'])?>"><label>Caduca</label><input type="date" name="fecha_caducidad" value="<?=h($cn['fecha_caducidad'])?>"><label>Estado</label><select name="estado"><option <?=$cn['estado']==='Activo'?'selected':''?>>Activo</option><option <?=$cn['estado']!=='Activo'?'selected':''?>>Inactivo</option></select><label>Nota</label><input name="nota" value="<?=h($cn['nota'])?>"><button class="btn green">Guardar cambios</button></form><form method="post" onsubmit="return confirm('¿Eliminar definitivamente este cliente normal?')" style="margin-top:8px"><input type="hidden" name="action" value="delete_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><button class="btn red">Eliminar cliente normal</button></form></div></article><?php endforeach; if(!$clientesNormales): ?><div class="note">Todavía no hay clientes normales añadidos.</div><?php endif; ?></div></section>
+<section class="normalesPanel panel" id="clientesNormales"><div class="normalesHead"><h2>👤 CLIENTES NORMALES</h2><span class="normalesBadge">Activos <?=$totalNormalesActivos?> · Inactivos <?=$totalNormalesInactivos?> · Total <?=$totalNormales?></span></div><div class="note">Clientes sin programa de referidos. Precios normales: 3 meses 35€ · 6 meses 55€ · 12 meses 80€.</div><form class="normalesForm" method="post"><input type="hidden" name="action" value="add_normal"><div><label>Cliente normal</label><input name="nombre" placeholder="Usuario" required></div><div><label>Contacto</label><input name="contacto" placeholder="WhatsApp o email"></div><div><label>Telegram</label><input name="telegram" placeholder="@usuario"></div><div><label>Alta</label><input type="date" name="fecha_alta" value="<?=$today?>"></div><div><label>Caduca</label><input type="date" name="fecha_caducidad"></div><button class="btn green">➕ Añadir normal</button><div style="grid-column:1/-1"><label>Nota</label><input name="nota" placeholder="Nota privada"></div></form><div class="normalesGrid"><?php foreach($clientesNormales as $cn): $normalActivo=(($cn['estado']??'')==='Activo' && (empty($cn['fecha_caducidad']) || $cn['fecha_caducidad'] >= $today)); ?><article id="normal<?=$cn['id']?>" class="normalCard mdSearchTarget" data-md-type="normal" data-md-search="<?=h(strtolower(($cn['nombre']??'').' '.($cn['telegram']??'').' '.($cn['contacto']??'').' '.($cn['telefono']??'').' '.($cn['estado']??'').' '.($cn['fecha_caducidad']??'').' '.($cn['nota']??'')))?>"><div class="normalTop"><div><div class="normalNombre"><?=h($cn['nombre'])?></div><div class="normalMeta">Alta: <?=h($cn['fecha_alta'] ?: '-')?> · Caduca: <?=h($cn['fecha_caducidad'] ?: 'Sin fecha')?></div><div class="normalMeta">Telegram: <?=!empty($cn['telegram'])?'@'.h($cn['telegram']):'Sin Telegram'?> · Contacto: <?=h(($cn['contacto'] ?: $cn['telefono']) ?: '-')?></div><div class="normalMeta"><?= $cn['nota'] ? h($cn['nota']) : 'Sin nota' ?></div></div><span class="status <?=$normalActivo?'act':'in'?>"><?=$normalActivo?'Activo':'Inactivo'?></span></div><div class="normalActions"><button class="btn dark small" type="button" onclick="this.closest('.normalCard').classList.toggle('editing')">Editar</button><form method="post"><input type="hidden" name="action" value="renew_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><input type="hidden" name="months" value="3"><button class="btn green small">+3 Meses</button></form><form method="post"><input type="hidden" name="action" value="renew_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><input type="hidden" name="months" value="6"><button class="btn green small">+6 Meses</button></form><form method="post"><input type="hidden" name="action" value="renew_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><input type="hidden" name="months" value="12"><button class="btn green small">+12 Meses</button></form><form method="post"><input type="hidden" name="action" value="toggle_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><button class="btn small">Activo/Inactivo</button></form></div><div class="normalEdit"><form method="post" style="display:grid;gap:8px"><input type="hidden" name="action" value="update_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><label>Nombre</label><input name="nombre" value="<?=h($cn['nombre'])?>" required><label>Contacto</label><input name="contacto" value="<?=h($cn['contacto'] ?: $cn['telefono'])?>"><label>Telegram</label><input name="telegram" value="<?=h($cn['telegram'])?>"><label>Alta</label><input type="date" name="fecha_alta" value="<?=h($cn['fecha_alta'])?>"><label>Caduca</label><input type="date" name="fecha_caducidad" value="<?=h($cn['fecha_caducidad'])?>"><label>Estado</label><select name="estado"><option <?=$cn['estado']==='Activo'?'selected':''?>>Activo</option><option <?=$cn['estado']!=='Activo'?'selected':''?>>Inactivo</option></select><label>Nota</label><input name="nota" value="<?=h($cn['nota'])?>"><button class="btn green">Guardar cambios</button></form><form method="post" onsubmit="return confirm('¿Eliminar definitivamente este cliente normal?')" style="margin-top:8px"><input type="hidden" name="action" value="delete_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><button class="btn red">Eliminar cliente normal</button></form></div></article><?php endforeach; if(!$clientesNormales): ?><div class="note">Todavía no hay clientes normales añadidos.</div><?php endif; ?></div></section>
 <section class="levels panel" id="niveles"><h2 style="margin-top:0">Configuración de niveles Premium</h2><div class="levelGrid"><?php foreach($niveles as $n): $cls='lv-'.strtolower($n['nivel']); ?><div class="levelCard <?=$cls?>"><div class="levelIcon"><?= levelIcon($n['nivel']) ?></div><h3><?=h($n['nivel'])?></h3><p><?= (int)$n['min_activos'] ?>+ referidos activos</p><div class="levelPrices"><span><?=euro($n['trimestral'])?></span><span><?=euro($n['semestral'])?></span><span><?=euro($n['anual'])?></span></div></div><?php endforeach; ?></div></section>
 <section class="quickRefSearch panel" id="buscadorReferidosRapido">
   <h2>🔎 BUSCADOR RAPIDO DE REFERIDOS</h2>
@@ -1399,7 +1554,7 @@ $copyIna .= "━━━━━━━━━━━━━━━━━━\nTOTAL INACT
 <button type="button" class="btn dark small" onclick="mdSetMonths(this,3)">✅ +3 Meses</button>
 <button type="button" class="btn dark small" onclick="mdSetMonths(this,6)">✅ +6 Meses</button>
 <button type="button" class="btn dark small" onclick="mdSetMonths(this,12)">✅ +12 Meses</button>
-</div></form></aside><section class="panel box"><h3 id="refs_<?=$mid?>">Referidos</h3><div class="refList"><?php foreach($rs as $r): ?><article class="ref"><div class="refTop"><div><b><?=h($r['nombre'])?></b><div class="muted">Alta: <?=h($r['fecha_alta']?:'-')?> · Caduca: <?=h($r['fecha_caducidad']?:'Sin fecha')?></div></div><span class="status <?= $r['estado']==='Activo'?'act':'in' ?>"><?=h($r['estado'])?></span></div><div class="note" style="margin-top:8px"><?= $r['nota'] ? h($r['nota']) : 'Sin nota' ?></div><div class="refActions"><button class="btn dark small" type="button" onclick="this.closest('.ref').classList.toggle('edit')">Editar</button><form method="post"><input type="hidden" name="action" value="toggle_ref"><input type="hidden" name="ref_id" value="<?=$r['id']?>"><button class="btn small">Activo/Inactivo</button></form><form method="post" onsubmit="return confirm('¿Eliminar referido?')"><input type="hidden" name="action" value="delete_ref"><input type="hidden" name="ref_id" value="<?=$r['id']?>"><button class="btn red small">Eliminar</button></form></div>
+</div></form></aside><section class="panel box"><h3 id="refs_<?=$mid?>">Referidos</h3><div class="refList"><?php foreach($rs as $r): ?><article class="ref" id="ref<?=$r['id']?>" data-ref-id="<?=$r['id']?>"><div class="refTop"><div><b><?=h($r['nombre'])?></b><div class="muted">Alta: <?=h($r['fecha_alta']?:'-')?> · Caduca: <?=h($r['fecha_caducidad']?:'Sin fecha')?></div></div><span class="status <?= $r['estado']==='Activo'?'act':'in' ?>"><?=h($r['estado'])?></span></div><div class="note" style="margin-top:8px"><?= $r['nota'] ? h($r['nota']) : 'Sin nota' ?></div><div class="refActions"><button class="btn dark small" type="button" onclick="this.closest('.ref').classList.toggle('edit')">Editar</button><form method="post"><input type="hidden" name="action" value="toggle_ref"><input type="hidden" name="ref_id" value="<?=$r['id']?>"><button class="btn small">Activo/Inactivo</button></form><form method="post" onsubmit="return confirm('¿Eliminar referido?')"><input type="hidden" name="action" value="delete_ref"><input type="hidden" name="ref_id" value="<?=$r['id']?>"><button class="btn red small">Eliminar</button></form></div>
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">
 <form method="post"><input type="hidden" name="action" value="renew_ref"><input type="hidden" name="ref_id" value="<?=$r['id']?>"><input type="hidden" name="months" value="3"><button class="btn green small">+3 Meses</button></form>
 <form method="post"><input type="hidden" name="action" value="renew_ref"><input type="hidden" name="ref_id" value="<?=$r['id']?>"><input type="hidden" name="months" value="6"><button class="btn green small">+6 Meses</button></form>
@@ -1579,6 +1734,164 @@ function mdToggleFechaInactivo(btn){
     setTimeout(function(){ box.scrollIntoView({behavior:'smooth', block:'center'}); }, 60);
   }
   return false;
+}
+</script>
+
+<script id="mdGlobalProDataV13">
+const mdGlobalProReferentesData = [
+<?php foreach($clientes as $c): ?>
+  {
+    type:"referente",
+    id:"c<?= (int)$c['id'] ?>",
+    nombre: <?=json_encode($c['nombre'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    telegram: <?=json_encode($c['telegram'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    contacto: <?=json_encode(($c['contacto'] ?? '') ?: ($c['telefono'] ?? ''), JSON_UNESCAPED_UNICODE)?>,
+    nota: <?=json_encode($c['nota'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    activos: <?=json_encode((string)($c['activos'] ?? 0), JSON_UNESCAPED_UNICODE)?>,
+    total: <?=json_encode((string)($c['total_refs'] ?? 0), JSON_UNESCAPED_UNICODE)?>
+  },
+<?php endforeach; ?>
+];
+
+const mdGlobalProReferidosData = [
+<?php foreach($buscadorRefs as $r): ?>
+  {
+    type:"referido",
+    id:"ref<?= (int)$r['id'] ?>",
+    modal:"m<?= (int)$r['cliente_id_real'] ?>",
+    nombre: <?=json_encode($r['nombre'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    referente: <?=json_encode($r['cliente_nombre'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    estado: <?=json_encode($r['estado'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    alta: <?=json_encode($r['fecha_alta'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    caduca: <?=json_encode($r['fecha_caducidad'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    nota: <?=json_encode($r['nota'] ?? '', JSON_UNESCAPED_UNICODE)?>
+  },
+<?php endforeach; ?>
+];
+
+const mdGlobalProNormalesData = [
+<?php foreach($clientesNormales as $cn): ?>
+  {
+    type:"normal",
+    id:"normal<?= (int)$cn['id'] ?>",
+    nombre: <?=json_encode($cn['nombre'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    telegram: <?=json_encode($cn['telegram'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    contacto: <?=json_encode(($cn['contacto'] ?? '') ?: ($cn['telefono'] ?? ''), JSON_UNESCAPED_UNICODE)?>,
+    estado: <?=json_encode($cn['estado'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    alta: <?=json_encode($cn['fecha_alta'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    caduca: <?=json_encode($cn['fecha_caducidad'] ?? '', JSON_UNESCAPED_UNICODE)?>,
+    nota: <?=json_encode($cn['nota'] ?? '', JSON_UNESCAPED_UNICODE)?>
+  },
+<?php endforeach; ?>
+];
+</script>
+
+<script id="mdGlobalProJsV13">
+function mdProNorm(v){
+  return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+function mdProEsc(s){
+  return (s || '').toString()
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;");
+}
+function mdProMatch(item,q){
+  return mdProNorm(Object.values(item).join(' ')).indexOf(q) !== -1;
+}
+function mdProGo(id, modalId){
+  if(modalId){
+    const modal = document.getElementById(modalId);
+    if(modal){ modal.classList.add('open'); }
+  }
+  setTimeout(function(){
+    let el = document.getElementById(id);
+    if(!el && id && id.indexOf('ref') === 0){
+      el = document.querySelector('[data-ref-id="'+id.replace('ref','')+'"]');
+    }
+    if(el){
+      el.scrollIntoView({behavior:'smooth',block:'center'});
+      el.classList.add('mdGlobalHighlight');
+      setTimeout(function(){ el.classList.remove('mdGlobalHighlight'); }, 3200);
+    }
+  }, modalId ? 250 : 50);
+}
+function mdProItem(title, meta, typeTxt, typeClass, id, modal){
+  return '<div class="mdGlobalProItem" onclick="mdProGo(\\''+mdProEsc(id)+'\\',\\''+mdProEsc(modal || '')+'\\')">'
+    + '<b>'+mdProEsc(title)+'</b>'
+    + '<small>'+mdProEsc(meta)+'</small>'
+    + '<span class="mdGlobalProType '+typeClass+'">'+mdProEsc(typeTxt)+'</span>'
+    + '</div>';
+}
+function mdProRender(list, containerId, formatter){
+  const el = document.getElementById(containerId);
+  if(!el) return 0;
+  el.innerHTML = '';
+  list.slice(0, 25).forEach(function(item){
+    el.insertAdjacentHTML('beforeend', formatter(item));
+  });
+  if(list.length === 0){
+    el.innerHTML = '<div class="note">Sin resultados</div>';
+  }
+  return list.length;
+}
+function mdGlobalProSearch(){
+  const input = document.getElementById('mdGlobalProInput');
+  const q = mdProNorm(input ? input.value : '');
+  const results = document.getElementById('mdGlobalProResults');
+  const empty = document.getElementById('mdGlobalProEmpty');
+
+  if(q.length < 1){
+    if(results) results.classList.remove('show');
+    if(empty) empty.classList.remove('show');
+    return;
+  }
+
+  const referentes = (mdGlobalProReferentesData || []).filter(x => mdProMatch(x,q));
+  const referidos = (mdGlobalProReferidosData || []).filter(x => mdProMatch(x,q));
+  const normales = (mdGlobalProNormalesData || []).filter(x => mdProMatch(x,q));
+
+  const a = mdProRender(referentes,'mdGlobalProReferentes',function(x){
+    return mdProItem(
+      x.nombre,
+      'Telegram: '+(x.telegram ? '@'+x.telegram : '-')+' · Contacto: '+(x.contacto || '-')+' · Activos: '+(x.activos || '0')+' · Total: '+(x.total || '0'),
+      'Referente',
+      'refe',
+      x.id,
+      ''
+    );
+  });
+  const b = mdProRender(referidos,'mdGlobalProReferidos',function(x){
+    return mdProItem(
+      x.nombre,
+      'Referente: '+(x.referente || '-')+' · Estado: '+(x.estado || '-')+' · Caduca: '+(x.caduca || 'Sin fecha')+' · Nota: '+(x.nota || '-'),
+      'Referido VIP',
+      'vip',
+      x.id,
+      x.modal
+    );
+  });
+  const c = mdProRender(normales,'mdGlobalProNormales',function(x){
+    return mdProItem(
+      x.nombre,
+      'Telegram: '+(x.telegram ? '@'+x.telegram : '-')+' · Contacto: '+(x.contacto || '-')+' · Estado: '+(x.estado || '-')+' · Caduca: '+(x.caduca || 'Sin fecha')+' · Nota: '+(x.nota || '-'),
+      'Cliente normal',
+      'normal',
+      x.id,
+      ''
+    );
+  });
+
+  const total = a+b+c;
+  if(results) results.classList.toggle('show', total > 0);
+  if(empty) empty.classList.toggle('show', total === 0);
+}
+function mdGlobalProClear(){
+  const input = document.getElementById('mdGlobalProInput');
+  if(input) input.value = '';
+  mdGlobalProSearch();
 }
 </script>
 </body></html>
