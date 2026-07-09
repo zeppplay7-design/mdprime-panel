@@ -153,10 +153,23 @@ function dnull($v){ $v=clean($v); return preg_match('/^\d{4}-\d{2}-\d{2}$/',$v)?
 function euro($v){ return ((float)$v>0) ? rtrim(rtrim(number_format((float)$v,2,',','.'),'0'),',').'€' : '-'; }
 function fechaTxt($v){ return ($v && $v !== '0000-00-00') ? date('d/m/Y', strtotime($v)) : 'Sin fecha'; }
 function redirectBack($msg){
-  $url = $_SERVER['PHP_SELF'].'?msg='.urlencode($msg);
+  // Mantiene la misma página/listado y vuelve a abrir la ficha/modal desde donde se guardó.
+  $q = $_GET;
+  $q['msg'] = $msg;
+
   if(!empty($_POST['return_modal'])){
-    $url .= '&open='.urlencode(clean($_POST['return_modal']));
+    $open = clean($_POST['return_modal']);
+
+    // Compatibilidad con valores antiguos tipo m12.
+    if(preg_match('/^m(\d+)$/', $open, $m)){
+      $open = 'modal_'.$m[1];
+    }
+
+    $q['open'] = $open;
+    $q['focus_add_ref'] = '1';
   }
+
+  $url = $_SERVER['PHP_SELF'].'?'.http_build_query($q);
   header('Location: '.$url);
   exit;
 }
@@ -1549,7 +1562,7 @@ $copyAct .= "━━━━━━━━━━━━━━━━━━\nTOTAL ACTIV
 $copyIna .= "━━━━━━━━━━━━━━━━━━\nTOTAL INACTIVOS: ".$inaCountTxt."\n━━━━━━━━━━━━━━━━━━";
 ?>
 <div class="copyBox"><h3>📋 Copiar referidos</h3><div class="copyButtons"><button class="btn dark" type="button" data-copy="<?=h(base64_encode($copyAll))?>" onclick="mdCopyBtn(this)">📋 Copiar todos</button><button class="btn dark" type="button" data-copy="<?=h(base64_encode($copyAct))?>" onclick="mdCopyBtn(this)">✅ Copiar activos</button><button class="btn dark" type="button" data-copy="<?=h(base64_encode($copyIna))?>" onclick="mdCopyBtn(this)">❌ Copiar inactivos</button><button class="btn green" type="button" data-copy="<?=h(base64_encode($copyAll))?>" onclick="mdTelegramBtn(this)">✈️ Telegram</button></div></div>
-<h3 id="add_<?=$mid?>">Añadir referido</h3><form method="post" style="display:grid;gap:9px"><input type="hidden" name="action" value="add_referido"><input type="hidden" name="cliente_id" value="<?=$c['id']?>"><input type="hidden" name="return_modal" value="m<?=$c['id']?>"><input name="nombre" placeholder="Nombre referido" required><label>Fecha alta</label><input type="date" name="fecha_alta" value="<?=$today?>"><label>Fecha caducidad</label><input type="date" name="fecha_caducidad"><select name="estado"><option>Activo</option><option>Inactivo</option></select><input name="nota" placeholder="Nota del referido"><button class="btn green">Guardar referido</button>
+<h3 id="add_<?=$mid?>">Añadir referido</h3><form method="post" style="display:grid;gap:9px"><input type="hidden" name="action" value="add_referido"><input type="hidden" name="cliente_id" value="<?=$c['id']?>"><input type="hidden" name="return_modal" value="<?=$mid?>"><input name="nombre" class="mdAddReferidoNombre" placeholder="Nombre referido" required autocomplete="off"><label>Fecha alta</label><input type="date" name="fecha_alta" value="<?=$today?>"><label>Fecha caducidad</label><input type="date" name="fecha_caducidad"><select name="estado"><option>Activo</option><option>Inactivo</option></select><input name="nota" placeholder="Nota del referido"><button class="btn green">Guardar referido</button>
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">
 <button type="button" class="btn dark small" onclick="mdSetMonths(this,3)">✅ +3 Meses</button>
 <button type="button" class="btn dark small" onclick="mdSetMonths(this,6)">✅ +6 Meses</button>
@@ -1619,8 +1632,23 @@ document.addEventListener('submit', function(e){
 document.addEventListener('DOMContentLoaded', function(){
   const params = new URLSearchParams(window.location.search);
   const openId = params.get('open');
+  const focusAddRef = params.get('focus_add_ref') === '1';
+
   if(openId && document.getElementById(openId)){
-    setTimeout(function(){ openM(openId); }, 150);
+    setTimeout(function(){
+      openM(openId, focusAddRef ? 'add' : undefined);
+
+      if(focusAddRef){
+        setTimeout(function(){
+          const modal = document.getElementById(openId);
+          const nombre = modal ? modal.querySelector('.mdAddReferidoNombre') : null;
+          if(nombre){
+            nombre.value = '';
+            nombre.focus();
+          }
+        }, 350);
+      }
+    }, 150);
   }
 });
 </script>
