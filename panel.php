@@ -1,5 +1,5 @@
 <?php
-/* MDPRIME PANEL V13 - BUSCADOR GLOBAL CRM PRO */
+/* MDPRIME PANEL V14 - BUSCADOR GLOBAL CRM PRO FIX JS */
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -1290,9 +1290,9 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
   <div class="mdGlobalProGrid">
     <div>
       <label>Buscar en todo MDPRIME</label>
-      <input id="mdGlobalProInput" type="search" placeholder="Ej: Manuel, @telegram, WhatsApp, cocoloco..." oninput="mdGlobalProSearch()">
+      <input id="mdGlobalProInput" type="search" placeholder="Ej: Manuel, @telegram, WhatsApp, cocoloco..." oninput="mdGlobalProSearch()" onkeydown="if(event.key==='Enter'){event.preventDefault();mdGlobalProSearch();}">
     </div>
-    <button type="button" class="btn dark" onclick="mdGlobalProClear()">❌ Limpiar</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button type="button" class="btn green" onclick="mdGlobalProSearch()">🔎 Buscar</button><button type="button" class="btn dark" onclick="mdGlobalProClear()">❌ Limpiar</button></div>
   </div>
 
   <div id="mdGlobalProResults" class="mdGlobalProResults">
@@ -1786,7 +1786,9 @@ const mdGlobalProNormalesData = [
 ];
 </script>
 
-<script id="mdGlobalProJsV13">
+
+
+<script id="mdGlobalProJsV14">
 function mdProNorm(v){
   return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 }
@@ -1803,14 +1805,17 @@ function mdProMatch(item,q){
 }
 function mdProGo(id, modalId){
   if(modalId){
-    const modal = document.getElementById(modalId);
+    var modal = document.getElementById(modalId);
     if(modal){ modal.classList.add('open'); }
   }
+
   setTimeout(function(){
-    let el = document.getElementById(id);
+    var el = document.getElementById(id);
+
     if(!el && id && id.indexOf('ref') === 0){
       el = document.querySelector('[data-ref-id="'+id.replace('ref','')+'"]');
     }
+
     if(el){
       el.scrollIntoView({behavior:'smooth',block:'center'});
       el.classList.add('mdGlobalHighlight');
@@ -1819,29 +1824,38 @@ function mdProGo(id, modalId){
   }, modalId ? 250 : 50);
 }
 function mdProItem(title, meta, typeTxt, typeClass, id, modal){
-  return '<div class="mdGlobalProItem" onclick="mdProGo(\\''+mdProEsc(id)+'\\',\\''+mdProEsc(modal || '')+'\\')">'
-    + '<b>'+mdProEsc(title)+'</b>'
-    + '<small>'+mdProEsc(meta)+'</small>'
-    + '<span class="mdGlobalProType '+typeClass+'">'+mdProEsc(typeTxt)+'</span>'
-    + '</div>';
+  var div = document.createElement('div');
+  div.className = 'mdGlobalProItem';
+  div.onclick = function(){ mdProGo(id || '', modal || ''); };
+
+  div.innerHTML =
+    '<b>'+mdProEsc(title)+'</b>' +
+    '<small>'+mdProEsc(meta)+'</small>' +
+    '<span class="mdGlobalProType '+mdProEsc(typeClass)+'">'+mdProEsc(typeTxt)+'</span>';
+
+  return div;
 }
 function mdProRender(list, containerId, formatter){
-  const el = document.getElementById(containerId);
+  var el = document.getElementById(containerId);
   if(!el) return 0;
+
   el.innerHTML = '';
+
   list.slice(0, 25).forEach(function(item){
-    el.insertAdjacentHTML('beforeend', formatter(item));
+    el.appendChild(formatter(item));
   });
+
   if(list.length === 0){
     el.innerHTML = '<div class="note">Sin resultados</div>';
   }
+
   return list.length;
 }
 function mdGlobalProSearch(){
-  const input = document.getElementById('mdGlobalProInput');
-  const q = mdProNorm(input ? input.value : '');
-  const results = document.getElementById('mdGlobalProResults');
-  const empty = document.getElementById('mdGlobalProEmpty');
+  var input = document.getElementById('mdGlobalProInput');
+  var q = mdProNorm(input ? input.value : '');
+  var results = document.getElementById('mdGlobalProResults');
+  var empty = document.getElementById('mdGlobalProEmpty');
 
   if(q.length < 1){
     if(results) results.classList.remove('show');
@@ -1849,11 +1863,11 @@ function mdGlobalProSearch(){
     return;
   }
 
-  const referentes = (mdGlobalProReferentesData || []).filter(x => mdProMatch(x,q));
-  const referidos = (mdGlobalProReferidosData || []).filter(x => mdProMatch(x,q));
-  const normales = (mdGlobalProNormalesData || []).filter(x => mdProMatch(x,q));
+  var referentes = (window.mdGlobalProReferentesData || mdGlobalProReferentesData || []).filter(function(x){return mdProMatch(x,q);});
+  var referidos = (window.mdGlobalProReferidosData || mdGlobalProReferidosData || []).filter(function(x){return mdProMatch(x,q);});
+  var normales = (window.mdGlobalProNormalesData || mdGlobalProNormalesData || []).filter(function(x){return mdProMatch(x,q);});
 
-  const a = mdProRender(referentes,'mdGlobalProReferentes',function(x){
+  var a = mdProRender(referentes,'mdGlobalProReferentes',function(x){
     return mdProItem(
       x.nombre,
       'Telegram: '+(x.telegram ? '@'+x.telegram : '-')+' · Contacto: '+(x.contacto || '-')+' · Activos: '+(x.activos || '0')+' · Total: '+(x.total || '0'),
@@ -1863,7 +1877,8 @@ function mdGlobalProSearch(){
       ''
     );
   });
-  const b = mdProRender(referidos,'mdGlobalProReferidos',function(x){
+
+  var b = mdProRender(referidos,'mdGlobalProReferidos',function(x){
     return mdProItem(
       x.nombre,
       'Referente: '+(x.referente || '-')+' · Estado: '+(x.estado || '-')+' · Caduca: '+(x.caduca || 'Sin fecha')+' · Nota: '+(x.nota || '-'),
@@ -1873,7 +1888,8 @@ function mdGlobalProSearch(){
       x.modal
     );
   });
-  const c = mdProRender(normales,'mdGlobalProNormales',function(x){
+
+  var c = mdProRender(normales,'mdGlobalProNormales',function(x){
     return mdProItem(
       x.nombre,
       'Telegram: '+(x.telegram ? '@'+x.telegram : '-')+' · Contacto: '+(x.contacto || '-')+' · Estado: '+(x.estado || '-')+' · Caduca: '+(x.caduca || 'Sin fecha')+' · Nota: '+(x.nota || '-'),
@@ -1884,12 +1900,13 @@ function mdGlobalProSearch(){
     );
   });
 
-  const total = a+b+c;
+  var total = a + b + c;
+
   if(results) results.classList.toggle('show', total > 0);
   if(empty) empty.classList.toggle('show', total === 0);
 }
 function mdGlobalProClear(){
-  const input = document.getElementById('mdGlobalProInput');
+  var input = document.getElementById('mdGlobalProInput');
   if(input) input.value = '';
   mdGlobalProSearch();
 }
