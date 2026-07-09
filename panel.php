@@ -1,5 +1,5 @@
 <?php
-/* MDPRIME PANEL V14 - BUSCADOR GLOBAL CRM PRO FIX JS */
+/* MDPRIME PANEL V15 - BUSCADOR GLOBAL CLICK A FICHA */
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -1285,7 +1285,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
     <h2>🔎 BUSCADOR GLOBAL MDPRIME</h2>
     <span class="mdGlobalProBadge">Referentes · Referidos VIP · Clientes normales</span>
   </div>
-  <div class="note">Busca por nombre, Telegram, WhatsApp, contacto, nota o fecha de caducidad. Pulsa un resultado para ir directo a su tarjeta.</div>
+  <div class="note">Busca por nombre, Telegram, WhatsApp, contacto, nota o fecha de caducidad. Pulsa un resultado para abrir su ficha y editarlo.</div>
 
   <div class="mdGlobalProGrid">
     <div>
@@ -1803,30 +1803,54 @@ function mdProEsc(s){
 function mdProMatch(item,q){
   return mdProNorm(Object.values(item).join(' ')).indexOf(q) !== -1;
 }
-function mdProGo(id, modalId){
+function mdProGo(id, modalId, nombre){
   if(modalId){
     var modal = document.getElementById(modalId);
     if(modal){ modal.classList.add('open'); }
   }
 
   setTimeout(function(){
-    var el = document.getElementById(id);
+    var el = id ? document.getElementById(id) : null;
 
     if(!el && id && id.indexOf('ref') === 0){
       el = document.querySelector('[data-ref-id="'+id.replace('ref','')+'"]');
     }
 
+    // Fallback fuerte: si no hay id, busca dentro del modal o del documento por el nombre.
+    if(!el && nombre){
+      var zona = modalId ? document.getElementById(modalId) : document;
+      if(zona){
+        var q = mdProNorm(nombre);
+        var posibles = zona.querySelectorAll('.ref, .client, .normalCard, article');
+        for(var i=0;i<posibles.length;i++){
+          if(mdProNorm(posibles[i].innerText).indexOf(q) !== -1){
+            el = posibles[i];
+            break;
+          }
+        }
+      }
+    }
+
     if(el){
       el.scrollIntoView({behavior:'smooth',block:'center'});
       el.classList.add('mdGlobalHighlight');
+
+      // Abrir caja de editar si la ficha tiene botón/estado de edición.
+      if(el.classList.contains('normalCard')){
+        el.classList.add('editing');
+      }
+      if(el.classList.contains('ref')){
+        el.classList.add('edit');
+      }
+
       setTimeout(function(){ el.classList.remove('mdGlobalHighlight'); }, 3200);
     }
-  }, modalId ? 250 : 50);
+  }, modalId ? 350 : 80);
 }
 function mdProItem(title, meta, typeTxt, typeClass, id, modal){
   var div = document.createElement('div');
   div.className = 'mdGlobalProItem';
-  div.onclick = function(){ mdProGo(id || '', modal || ''); };
+  div.onclick = function(){ mdProGo(id || '', modal || '', title || ''); };
 
   div.innerHTML =
     '<b>'+mdProEsc(title)+'</b>' +
