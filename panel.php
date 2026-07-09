@@ -1,5 +1,5 @@
 <?php
-/* MDPRIME PANEL V16 - BUSCADOR GLOBAL CLICK REAL */
+/* MDPRIME PANEL V17 - BUSCADOR GLOBAL FIX RESULTADOS */
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -1921,9 +1921,9 @@ function mdGlobalProSearch(){
     return;
   }
 
-  var referentes = (window.mdGlobalProReferentesData || []).filter(function(x){return mdProMatch(x,q);});
-  var referidos = (window.mdGlobalProReferidosData || []).filter(function(x){return mdProMatch(x,q);});
-  var normales = (window.mdGlobalProNormalesData || []).filter(function(x){return mdProMatch(x,q);});
+  var referentes = (typeof mdGlobalProReferentesData !== 'undefined' ? mdGlobalProReferentesData : []).filter(function(x){return mdProMatch(x,q);});
+  var referidos = (typeof mdGlobalProReferidosData !== 'undefined' ? mdGlobalProReferidosData : []).filter(function(x){return mdProMatch(x,q);});
+  var normales = (typeof mdGlobalProNormalesData !== 'undefined' ? mdGlobalProNormalesData : []).filter(function(x){return mdProMatch(x,q);});
 
   var a = mdProRender(referentes,'mdGlobalProReferentes',function(x){
     return mdProItem(
@@ -1962,6 +1962,7 @@ function mdGlobalProSearch(){
   });
 
   var total = a + b + c;
+  console.log('MDPRIME buscador:', {referentes: referentes.length, referidos: referidos.length, normales: normales.length, total: total});
   if(results) results.classList.toggle('show', total > 0);
   if(empty) empty.classList.toggle('show', total === 0);
 }
