@@ -1,5 +1,5 @@
 <?php
-/* MDPRIME PANEL V17 - BUSCADOR GLOBAL FIX RESULTADOS */
+/* MDPRIME PANEL V18 - BUSCADOR GLOBAL ABRIR FICHA REAL */
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -1489,7 +1489,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
 </section>
 <section class="clients">
 <?php foreach($clientesPagina as $c): $act=(int)$c['activos'];$ina=(int)$c['inactivos'];$tot=(int)$c['total_refs'];$niv=nivelActual($act,$niveles);$nx=nextLevel($act,$niveles);$miniProgress=$nx?min(100,round(($act/(int)$nx['min_activos'])*100)):100;$faltan=$nx?((int)$nx['min_activos']-$act):0;$refs=$pdo->prepare("SELECT * FROM referidos WHERE cliente_id=? ORDER BY id DESC");$refs->execute([$c['id']]);$rs=$refs->fetchAll();$mid='modal_'.$c['id']; ?>
-<article class="client panel" data-search="<?=h(strtolower($c['nombre'].' '.$c['contacto'].' '.$c['telefono'].' '.($c['telegram'] ?? '')) )?>"><span class="badge"><?=h($niv['icon'].' '.$niv['nivel'])?></span><h3><?=h($c['nombre'])?></h3><div class="muted">📱 <?=h($c['contacto'] ?: $c['telefono'] ?: 'Sin WhatsApp/contacto')?></div>
+<article class="client panel" id="c<?=$c['id']?>" data-search="<?=h(strtolower($c['nombre'].' '.$c['contacto'].' '.$c['telefono'].' '.($c['telegram'] ?? '')) )?>"><span class="badge"><?=h($niv['icon'].' '.$niv['nivel'])?></span><h3><?=h($c['nombre'])?></h3><div class="muted">📱 <?=h($c['contacto'] ?: $c['telefono'] ?: 'Sin WhatsApp/contacto')?></div>
 <div class="muted">✈️ <?php if(!empty($c['telegram'])): ?><a class="tgRefLink" href="https://t.me/<?=h(ltrim($c['telegram'],'@'))?>" target="_blank" rel="noopener">@<?=h(ltrim($c['telegram'],'@'))?></a><?php else: ?>Sin Telegram<?php endif; ?></div><div class="metrics"><div class="metric"><b><?= $act ?></b><span>Activos</span></div><div class="metric"><b><?= $ina ?></b><span>Inactivos</span></div><div class="metric"><b><?= $tot ?></b><span>Total</span></div></div><div class="miniProgress"><small><span><?= $nx ? 'Faltan '.$faltan.' para '.$nx['nivel'] : 'Nivel máximo' ?></span><span><?= $miniProgress ?>%</span></small><div class="miniBar"><span style="--w:<?=$miniProgress?>%"></span></div></div><div class="prices"><div class="price"><span>3M</span><b><?=euro($niv['trimestral'])?></b></div><div class="price"><span>6M</span><b><?=euro($niv['semestral'])?></b></div><div class="price"><span>12M</span><b><?=euro($niv['anual'])?></b></div></div><div class="note"><?= $c['nota'] ? h($c['nota']) : 'Sin nota' ?></div><div class="clientMainActions">
 <button class="btn" onclick="openM('<?=$mid?>')" type="button">Gestionar</button>
 <button class="btn dark" onclick="openM('<?=$mid?>','add')" type="button">+ Referido</button>
@@ -1758,7 +1758,7 @@ const mdGlobalProReferidosData = [
   {
     type:"referido",
     id:"ref<?= (int)$r['id'] ?>",
-    modal:"m<?= (int)$r['cliente_id_real'] ?>",
+    modal:"modal_<?= (int)$r['cliente_id_real'] ?>",
     nombre: <?=json_encode($r['nombre'] ?? '', JSON_UNESCAPED_UNICODE)?>,
     referente: <?=json_encode($r['cliente_nombre'] ?? '', JSON_UNESCAPED_UNICODE)?>,
     estado: <?=json_encode($r['estado'] ?? '', JSON_UNESCAPED_UNICODE)?>,
@@ -1790,7 +1790,9 @@ const mdGlobalProNormalesData = [
 
 
 
-<script id="mdGlobalProJsV16">
+
+
+<script id="mdGlobalProJsV18">
 function mdProNorm(v){
   return (v || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 }
@@ -1805,95 +1807,86 @@ function mdProEsc(s){
 function mdProMatch(item,q){
   return mdProNorm(Object.values(item).join(' ')).indexOf(q) !== -1;
 }
-function mdProFindByText(root, selectors, text){
-  var q = mdProNorm(text);
-  if(!q) return null;
-  var items = (root || document).querySelectorAll(selectors);
-  for(var i=0;i<items.length;i++){
-    if(mdProNorm(items[i].innerText).indexOf(q) !== -1){
-      return items[i];
-    }
-  }
-  return null;
-}
 function mdProHighlight(el){
   if(!el) return;
   el.scrollIntoView({behavior:'smooth', block:'center'});
   el.classList.add('mdGlobalHighlight');
   setTimeout(function(){ el.classList.remove('mdGlobalHighlight'); }, 3500);
 }
-function mdProOpenEdit(el){
-  if(!el) return;
-
-  // Cliente normal
-  if(el.classList.contains('normalCard')){
-    el.classList.add('editing');
-    mdProHighlight(el);
-    return;
-  }
-
-  // Referido VIP
-  if(el.classList.contains('ref')){
-    el.classList.add('edit');
-    mdProHighlight(el);
-    return;
-  }
-
-  // Referente: intentar abrir su modal/ficha usando botones internos
-  var btnPerfil = el.querySelector('.btnPerfil, [onclick*="mdPerfil"], [onclick*="openModal"], [onclick*="modal"], button');
-  if(btnPerfil){
-    try{ btnPerfil.click(); }catch(e){}
-  }
-
-  mdProHighlight(el);
-}
-function mdProGo(id, modalId, nombre, tipo){
+function mdProOpenTarget(id, modalId, nombre, tipo){
   var el = null;
 
-  // 1) Si hay modal de referente, abrirlo primero.
   if(modalId){
-    var modal = document.getElementById(modalId);
-    if(modal){ 
-      modal.classList.add('open'); 
-      setTimeout(function(){
-        var dentro = mdProFindByText(modal, '.ref, article, .normalCard, .client', nombre);
-        if(dentro){
-          mdProOpenEdit(dentro);
-        }else{
-          mdProHighlight(modal);
-        }
-      }, 350);
-      return;
-    }
-  }
-
-  // 2) Intentar por ID directo.
-  if(id){
-    el = document.getElementById(id);
-  }
-
-  // 3) Si no hay ID, buscar por texto en todas las fichas visibles.
-  if(!el && nombre){
-    if(tipo === 'normal'){
-      el = mdProFindByText(document, '.normalCard, article', nombre);
-    }else if(tipo === 'referente'){
-      el = mdProFindByText(document, '.client, article', nombre);
+    if(typeof openM === 'function'){
+      openM(modalId);
     }else{
-      el = mdProFindByText(document, '.ref, article', nombre);
+      var m = document.getElementById(modalId);
+      if(m) m.classList.add('open');
+    }
+
+    setTimeout(function(){
+      el = document.getElementById(id);
+
+      if(!el && nombre){
+        var modal = document.getElementById(modalId);
+        if(modal){
+          var refs = modal.querySelectorAll('.ref, article');
+          var q = mdProNorm(nombre);
+          for(var i=0;i<refs.length;i++){
+            if(mdProNorm(refs[i].innerText).indexOf(q) !== -1){
+              el = refs[i];
+              break;
+            }
+          }
+        }
+      }
+
+      if(el){
+        el.classList.add('edit');
+        mdProHighlight(el);
+      }
+    }, 450);
+    return;
+  }
+
+  if(id) el = document.getElementById(id);
+
+  if(!el && nombre){
+    var selector = tipo === 'normal' ? '.normalCard, article' : '.client, article';
+    var items = document.querySelectorAll(selector);
+    var q = mdProNorm(nombre);
+
+    for(var j=0;j<items.length;j++){
+      if(mdProNorm(items[j].innerText).indexOf(q) !== -1){
+        el = items[j];
+        break;
+      }
     }
   }
 
-  mdProOpenEdit(el);
+  if(el){
+    if(tipo === 'normal'){
+      el.classList.add('editing');
+    }
+    mdProHighlight(el);
+  }
 }
 function mdProItem(title, meta, typeTxt, typeClass, id, modal, tipo){
   var div = document.createElement('div');
   div.className = 'mdGlobalProItem';
-  div.onclick = function(){ mdProGo(id || '', modal || '', title || '', tipo || ''); };
+
+  var btnLabel = tipo === 'referido' ? '✏️ Abrir referido' : (tipo === 'normal' ? '✏️ Editar cliente' : '✏️ Abrir referente');
 
   div.innerHTML =
     '<b>'+mdProEsc(title)+'</b>' +
     '<small>'+mdProEsc(meta)+'</small>' +
-    '<span class="mdGlobalProType '+mdProEsc(typeClass)+'">'+mdProEsc(typeTxt)+'</span>';
+    '<span class="mdGlobalProType '+mdProEsc(typeClass)+'">'+mdProEsc(typeTxt)+'</span>' +
+    '<button type="button" class="btn green small" style="margin-top:10px;width:100%">'+btnLabel+'</button>';
+
+  div.onclick = function(e){
+    e.preventDefault();
+    mdProOpenTarget(id || '', modal || '', title || '', tipo || '');
+  };
 
   return div;
 }
@@ -1901,9 +1894,7 @@ function mdProRender(list, containerId, formatter){
   var el = document.getElementById(containerId);
   if(!el) return 0;
   el.innerHTML = '';
-  list.slice(0, 25).forEach(function(item){
-    el.appendChild(formatter(item));
-  });
+  list.slice(0,25).forEach(function(item){ el.appendChild(formatter(item)); });
   if(list.length === 0){
     el.innerHTML = '<div class="note">Sin resultados</div>';
   }
@@ -1961,8 +1952,7 @@ function mdGlobalProSearch(){
     );
   });
 
-  var total = a + b + c;
-  console.log('MDPRIME buscador:', {referentes: referentes.length, referidos: referidos.length, normales: normales.length, total: total});
+  var total = a+b+c;
   if(results) results.classList.toggle('show', total > 0);
   if(empty) empty.classList.toggle('show', total === 0);
 }
