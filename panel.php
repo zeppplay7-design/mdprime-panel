@@ -1966,10 +1966,11 @@ const mdGlobalProReferidosData = [
 ];
 
 const mdGlobalProNormalesData = [
-<?php foreach($clientesNormales as $cn): ?>
+<?php foreach($clientesNormales as $cnIndex => $cn): ?>
   {
     type:"normal",
     id:"normal<?= (int)$cn['id'] ?>",
+    page: <?= (int)floor($cnIndex / $normalesPorPagina) + 1 ?>,
     nombre: <?=json_encode($cn['nombre'] ?? '', JSON_UNESCAPED_UNICODE)?>,
     telegram: <?=json_encode($cn['telegram'] ?? '', JSON_UNESCAPED_UNICODE)?>,
     contacto: <?=json_encode(($cn['contacto'] ?? '') ?: ($cn['telefono'] ?? ''), JSON_UNESCAPED_UNICODE)?>,
@@ -2009,8 +2010,24 @@ function mdProHighlight(el){
   el.classList.add('mdGlobalHighlight');
   setTimeout(function(){ el.classList.remove('mdGlobalHighlight'); }, 3500);
 }
-function mdProOpenTarget(id, modalId, nombre, tipo){
+function mdProOpenTarget(id, modalId, nombre, tipo, page){
   var el = null;
+
+  if(tipo === 'normal'){
+    var current = document.getElementById(id);
+    if(current){
+      current.classList.add('editing');
+      mdProHighlight(current);
+      return;
+    }
+
+    var url = new URL(window.location.href);
+    url.searchParams.set('pagina_normales', String(page || 1));
+    url.searchParams.set('open_normal', String(id || ''));
+    url.hash = 'clientesNormales';
+    window.location.href = url.toString();
+    return;
+  }
 
   if(modalId){
     if(typeof openM === 'function'){
@@ -2067,7 +2084,7 @@ function mdProOpenTarget(id, modalId, nombre, tipo){
     mdProHighlight(el);
   }
 }
-function mdProItem(title, meta, typeTxt, typeClass, id, modal, tipo){
+function mdProItem(title, meta, typeTxt, typeClass, id, modal, tipo, page){
   var div = document.createElement('div');
   div.className = 'mdGlobalProItem';
 
@@ -2081,7 +2098,7 @@ function mdProItem(title, meta, typeTxt, typeClass, id, modal, tipo){
 
   div.onclick = function(e){
     e.preventDefault();
-    mdProOpenTarget(id || '', modal || '', title || '', tipo || '');
+    mdProOpenTarget(id || '', modal || '', title || '', tipo || '', page || 1);
   };
 
   return div;
@@ -2144,7 +2161,8 @@ function mdGlobalProSearch(){
       'normal',
       x.id || '',
       '',
-      'normal'
+      'normal',
+      x.page || 1
     );
   });
 
@@ -2157,5 +2175,17 @@ function mdGlobalProClear(){
   if(input) input.value = '';
   mdGlobalProSearch();
 }
+
+document.addEventListener('DOMContentLoaded', function(){
+  var params = new URLSearchParams(window.location.search);
+  var openNormal = params.get('open_normal');
+  if(!openNormal) return;
+
+  var card = document.getElementById(openNormal);
+  if(card){
+    card.classList.add('editing');
+    setTimeout(function(){ mdProHighlight(card); }, 250);
+  }
+});
 </script>
 </body></html>
