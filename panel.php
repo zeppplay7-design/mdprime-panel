@@ -391,37 +391,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $cad=dnull($_POST['fecha_caducidad']??'');
       $estado=clean($_POST['estado']??'Activo');
       $nota=clean($_POST['nota']??'');
-
       if($cad&&$cad<$today)$estado='Inactivo';
-
       if($nombre!==''){
-        // No permitir el alta si ya existe como cliente normal.
-        $dupNormal=$pdo->prepare("SELECT id FROM clientes_normales WHERE LOWER(TRIM(nombre))=LOWER(TRIM(?)) LIMIT 1");
-        $dupNormal->execute([$nombre]);
-        if($dupNormal->fetch()){
-          throw new Exception('Ese cliente normal ya existe: '.$nombre);
-        }
-
-        // Tampoco permitir crear como normal a una persona que ya pertenece a un referente.
-        $dupReferido=$pdo->prepare("
-          SELECT r.id, c.nombre AS referente
-          FROM referidos r
-          LEFT JOIN clientes c ON c.id=r.cliente_id
-          WHERE LOWER(TRIM(r.nombre))=LOWER(TRIM(?))
-          LIMIT 1
-        ");
-        $dupReferido->execute([$nombre]);
-        $referidoExistente=$dupReferido->fetch();
-        if($referidoExistente){
-          throw new Exception(
-            'No se puede crear como cliente normal. Ya existe como referido de '.
-            ($referidoExistente['referente'] ?: 'otro referente').': '.$nombre
-          );
-        }
-
-        $pdo->prepare("INSERT INTO clientes_normales(nombre,contacto,telefono,telegram,fecha_alta,fecha_caducidad,estado,nota) VALUES(?,?,?,?,?,?,?,?)")
-            ->execute([$nombre,$contacto,$contacto,$telegram,$alta,$cad,$estado,$nota]);
-
+        $dup=$pdo->prepare("SELECT id FROM clientes_normales WHERE LOWER(TRIM(nombre))=LOWER(TRIM(?)) LIMIT 1");
+        $dup->execute([$nombre]);
+        if($dup->fetch()) throw new Exception('Ese cliente normal ya existe: '.$nombre);
+        $pdo->prepare("INSERT INTO clientes_normales(nombre,contacto,telefono,telegram,fecha_alta,fecha_caducidad,estado,nota) VALUES(?,?,?,?,?,?,?,?)")->execute([$nombre,$contacto,$contacto,$telegram,$alta,$cad,$estado,$nota]);
         $msg='Cliente normal añadido correctamente. ID Railway: '.$pdo->lastInsertId();
       }
     }
@@ -464,176 +439,57 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $base=trim((string)getenv('SIGMA_API_URL'));
       if($base==='') $base='https://mdprime.sigma.st/api/customers';
 
-      // Primero descargamos todo de Sigma. Railway no se modifica hasta tener la lista completa.
+      // Primero descargamos todo de Sigma. No modificamos Railway hasta tener la lista completa.
       $usuariosSigma=[];
-      $page=1;
-      $lastPage=1;
-
+      $page=1;$lastPage=1;
       do{
         $sep=str_contains($base,'?')?'&':'?';
         $url=$base.$sep.http_build_query(['page'=>$page,'perPage'=>100]);
         $json=sigmaGetJson($url,$token);
         [$rows,$detectedLast]=sigmaRowsAndLastPage($json);
-
         if($page===1) $lastPage=max(1,$detectedLast);
-
         foreach($rows as $row){
           if(!is_array($row)) continue;
-
           $username=clean($row['username']??'');
           $cad=sigmaFecha($row['expires_at_tz']??($row['expires_at']??''));
-
           if($username==='' || !$cad) continue;
-
           $key=mb_strtolower(trim($username),'UTF-8');
-          $usuariosSigma[$key]=[
-            'nombre'=>$username,
-            'caduca'=>$cad
-          ];
+          $usuariosSigma[$key]=['nombre'=>$username,'caduca'=>$cad];
         }
-
         $page++;
       }while($page<=$lastPage);
 
-      if(!$usuariosSigma){
-        throw new Exception('Sigma no devolvió usuarios válidos. No se ha modificado nada.');
-      }
+      if(!$usuariosSigma) throw new Exception('Sigma no devolvió usuarios válidos. No se ha modificado nada.');
 
       $pdo->beginTransaction();
-
       try{
-        // Copia persistente de clientes normales antes de la importación.
+        // Copia persistente en Railway justo antes de tocar clientes normales.
         $antes=$pdo->query("SELECT * FROM clientes_normales ORDER BY id ASC")->fetchAll();
         $backupJson=json_encode($antes,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-
-        if($backupJson===false){
-          throw new Exception('No se pudo crear la copia de seguridad previa.');
-        }
-
+        if($backupJson===false) throw new Exception('No se pudo crear la copia de seguridad previa.');
         $bk=$pdo->prepare("INSERT INTO clientes_normales_backups(total_clientes,motivo,datos) VALUES(?,?,?)");
         $bk->execute([count($antes),'Antes de importar desde Sigma',$backupJson]);
         $backupId=(int)$pdo->lastInsertId();
 
-        // Prioridad absoluta: REFERIDOS. Si existe ahí, jamás se crea otra copia como normal.
-        $findReferido=$pdo->prepare("
-          SELECT id,fecha_caducidad,estado
-          FROM referidos
-          WHERE LOWER(TRIM(nombre))=LOWER(TRIM(?))
-          ORDER BY id ASC
-          LIMIT 1
-        ");
-
-        $updateReferido=$pdo->prepare("
-          UPDATE referidos
-          SET fecha_caducidad=?,estado=?
-          WHERE id=?
-        ");
-
-        $findNormal=$pdo->prepare("
-          SELECT id,fecha_caducidad,estado
-          FROM clientes_normales
-          WHERE LOWER(TRIM(nombre))=LOWER(TRIM(?))
-          ORDER BY id ASC
-          LIMIT 1
-        ");
-
-        $updateNormal=$pdo->prepare("
-          UPDATE clientes_normales
-          SET fecha_caducidad=?,estado=?
-          WHERE id=?
-        ");
-
-        $insertNormal=$pdo->prepare("
-          INSERT INTO clientes_normales(
-            nombre,contacto,telefono,telegram,fecha_alta,fecha_caducidad,estado,nota
-          )
-          VALUES(?,'','','',?,?,?,'')
-        ");
-
-        // Limpia automáticamente una copia normal cuando el usuario ya está en referidos.
-        $deleteNormalDuplicado=$pdo->prepare("
-          DELETE FROM clientes_normales
-          WHERE LOWER(TRIM(nombre))=LOWER(TRIM(?))
-        ");
-
-        $nuevosNormales=0;
-        $normalesActualizados=0;
-        $referidosActualizados=0;
-        $duplicadosNormalesEliminados=0;
-        $sinCambios=0;
-
+        $find=$pdo->prepare("SELECT id,fecha_caducidad,estado FROM clientes_normales WHERE LOWER(TRIM(nombre))=LOWER(TRIM(?)) LIMIT 1");
+        $update=$pdo->prepare("UPDATE clientes_normales SET fecha_caducidad=?,estado=? WHERE id=?");
+        $insert=$pdo->prepare("INSERT INTO clientes_normales(nombre,contacto,telefono,telegram,fecha_alta,fecha_caducidad,estado,nota) VALUES(?,'','','',?,?,?,'')");
+        $nuevos=0;$actualizados=0;$sinCambios=0;
         foreach($usuariosSigma as $u){
           $estado=($u['caduca']<$today)?'Inactivo':'Activo';
-
-          // 1. Buscar primero en referidos.
-          $findReferido->execute([$u['nombre']]);
-          $referidoExistente=$findReferido->fetch();
-
-          if($referidoExistente){
-            if(
-              ($referidoExistente['fecha_caducidad']??null)!==$u['caduca'] ||
-              ($referidoExistente['estado']??'')!==$estado
-            ){
-              $updateReferido->execute([
-                $u['caduca'],
-                $estado,
-                $referidoExistente['id']
-              ]);
-              $referidosActualizados++;
-            }else{
-              $sinCambios++;
-            }
-
-            // Si quedó una copia antigua en clientes_normales, se elimina.
-            $deleteNormalDuplicado->execute([$u['nombre']]);
-            $duplicadosNormalesEliminados += $deleteNormalDuplicado->rowCount();
-            continue;
+          $find->execute([$u['nombre']]);
+          $ex=$find->fetch();
+          if($ex){
+            if(($ex['fecha_caducidad']??null)===$u['caduca'] && ($ex['estado']??'')===$estado){$sinCambios++;continue;}
+            $update->execute([$u['caduca'],$estado,$ex['id']]);
+            $actualizados++;
+          }else{
+            $insert->execute([$u['nombre'],$today,$u['caduca'],$estado]);
+            $nuevos++;
           }
-
-          // 2. Si no es referido, buscar en clientes normales.
-          $findNormal->execute([$u['nombre']]);
-          $normalExistente=$findNormal->fetch();
-
-          if($normalExistente){
-            if(
-              ($normalExistente['fecha_caducidad']??null)===$u['caduca'] &&
-              ($normalExistente['estado']??'')===$estado
-            ){
-              $sinCambios++;
-              continue;
-            }
-
-            $updateNormal->execute([
-              $u['caduca'],
-              $estado,
-              $normalExistente['id']
-            ]);
-            $normalesActualizados++;
-            continue;
-          }
-
-          // 3. Solo insertar cuando no existe en ninguna de las dos tablas.
-          $insertNormal->execute([
-            $u['nombre'],
-            $today,
-            $u['caduca'],
-            $estado
-          ]);
-          $nuevosNormales++;
         }
-
         $pdo->commit();
-
-        $msg=
-          'Sigma importado correctamente'.
-          ' · Nuevos normales: '.$nuevosNormales.
-          ' · Normales actualizados: '.$normalesActualizados.
-          ' · Referidos actualizados: '.$referidosActualizados.
-          ' · Duplicados normales eliminados: '.$duplicadosNormalesEliminados.
-          ' · Sin cambios: '.$sinCambios.
-          ' · Backup Railway #'.$backupId.
-          ' · Total Sigma: '.count($usuariosSigma);
-
+        $msg='Sigma importado correctamente · Nuevos: '.$nuevos.' · Actualizados: '.$actualizados.' · Sin cambios: '.$sinCambios.' · Backup Railway #'.$backupId.' · Total Sigma: '.count($usuariosSigma);
       }catch(Throwable $e){
         if($pdo->inTransaction()) $pdo->rollBack();
         throw $e;
@@ -693,57 +549,22 @@ $clientesNormalesPagina = array_slice(
 );
 
 
-/* ===== DETECTOR GLOBAL DE USUARIOS REPETIDOS =====
-   Detecta el mismo nombre:
-   - en varios referentes;
-   - varias veces dentro de referidos;
-   - simultáneamente en referidos y clientes_normales. */
+/* ===== DETECTOR DE REFERIDOS REPETIDOS ENTRE REFERENTES =====
+   Compara nombres normalizados y solo avisa cuando aparecen en más de un referente. */
 $duplicadosReferidos=$pdo->query("
-  SELECT
-    LOWER(TRIM(x.nombre)) AS nombre_normalizado,
-    MIN(x.nombre) AS nombre_mostrado,
+  SELECT 
+    LOWER(TRIM(r.nombre)) AS nombre_normalizado,
+    MIN(r.nombre) AS nombre_mostrado,
     COUNT(*) AS repeticiones,
-    COUNT(DISTINCT x.origen_clave) AS referentes_distintos,
-    GROUP_CONCAT(DISTINCT x.ubicacion ORDER BY x.ubicacion SEPARATOR ' · ') AS referentes,
-    GROUP_CONCAT(
-      CONCAT(
-        x.id,'|',x.ubicacion,'|',COALESCE(x.estado,''),'|',
-        COALESCE(x.fecha_alta,''),'|',COALESCE(x.fecha_caducidad,''),'|',COALESCE(x.nota,'')
-      )
-      ORDER BY x.ubicacion,x.id
-      SEPARATOR '###'
-    ) AS detalles
-  FROM (
-    SELECT
-      r.id,
-      r.nombre,
-      r.estado,
-      r.fecha_alta,
-      r.fecha_caducidad,
-      r.nota,
-      CONCAT('Referente: ',COALESCE(c.nombre,'Sin referente')) AS ubicacion,
-      CONCAT('referido:',r.cliente_id) AS origen_clave
-    FROM referidos r
-    LEFT JOIN clientes c ON c.id=r.cliente_id
-    WHERE TRIM(r.nombre)<>''
-
-    UNION ALL
-
-    SELECT
-      n.id,
-      n.nombre,
-      n.estado,
-      n.fecha_alta,
-      n.fecha_caducidad,
-      n.nota,
-      'Clientes normales' AS ubicacion,
-      'clientes_normales' AS origen_clave
-    FROM clientes_normales n
-    WHERE TRIM(n.nombre)<>''
-  ) x
-  GROUP BY LOWER(TRIM(x.nombre))
-  HAVING COUNT(*)>1
-  ORDER BY COUNT(DISTINCT x.origen_clave) DESC,COUNT(*) DESC,nombre_mostrado ASC
+    COUNT(DISTINCT r.cliente_id) AS referentes_distintos,
+    GROUP_CONCAT(DISTINCT c.nombre ORDER BY c.nombre SEPARATOR ' · ') AS referentes,
+    GROUP_CONCAT(CONCAT(r.id,'|',c.nombre,'|',r.estado,'|',COALESCE(r.fecha_alta,''),'|',COALESCE(r.fecha_caducidad,''),'|',COALESCE(r.nota,'')) ORDER BY c.nombre SEPARATOR '###') AS detalles
+  FROM referidos r
+  JOIN clientes c ON c.id=r.cliente_id
+  WHERE TRIM(r.nombre) <> ''
+  GROUP BY LOWER(TRIM(r.nombre))
+  HAVING referentes_distintos > 1
+  ORDER BY referentes_distintos DESC, repeticiones DESC, nombre_mostrado ASC
 ")->fetchAll();
 $totalDuplicadosReferidos=count($duplicadosReferidos);
 
@@ -1719,7 +1540,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
 
 <section class="duplicadosPanel panel" id="duplicados">
   <div class="duplicadosHead">
-    <h2>🔁 Usuarios repetidos en el sistema</h2>
+    <h2>🔁 Referidos repetidos entre referentes</h2>
     <span class="duplicadosBadge"><?= $totalDuplicadosReferidos ?> posibles duplicados detectados</span>
   </div>
   <?php if($duplicadosReferidos): ?>
@@ -1729,8 +1550,8 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
       <div class="duplicadoTop">
         <div>
           <div class="duplicadoNombre"><?=h($dup['nombre_mostrado'])?></div>
-          <div class="duplicadoMeta">Aparece <?= (int)$dup['repeticiones'] ?> veces en <?= (int)$dup['referentes_distintos'] ?> ubicaciones distintas.</div>
-          <div class="duplicadoMeta">Ubicaciones: <b><?=h($dup['referentes'])?></b></div>
+          <div class="duplicadoMeta">Aparece <?= (int)$dup['repeticiones'] ?> veces en <?= (int)$dup['referentes_distintos'] ?> referentes distintos.</div>
+          <div class="duplicadoMeta">Referentes: <b><?=h($dup['referentes'])?></b></div>
         </div>
         <span class="duplicadoAlert">REVISAR</span>
       </div>
@@ -1745,7 +1566,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
     <?php endforeach; ?>
   </div>
   <?php else: ?>
-    <div class="duplicadoOk">✅ No hay usuarios repetidos entre referidos y clientes normales.</div>
+    <div class="duplicadoOk">✅ No hay referidos repetidos entre diferentes referentes.</div>
   <?php endif; ?>
 </section>
 
