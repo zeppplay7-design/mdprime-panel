@@ -1965,11 +1965,13 @@ const mdGlobalProReferidosData = [
 <?php endforeach; ?>
 ];
 
+const mdGlobalProPaginaNormales = <?= (int)$paginaNormales ?>;
 const mdGlobalProNormalesData = [
-<?php foreach($clientesNormales as $cn): ?>
+<?php $mdNormalSearchIndex=0; foreach($clientesNormales as $cn): ?>
   {
     type:"normal",
     id:"normal<?= (int)$cn['id'] ?>",
+    pagina: <?= (int)(floor($mdNormalSearchIndex / $normalesPorPagina) + 1) ?>,
     nombre: <?=json_encode($cn['nombre'] ?? '', JSON_UNESCAPED_UNICODE)?>,
     telegram: <?=json_encode($cn['telegram'] ?? '', JSON_UNESCAPED_UNICODE)?>,
     contacto: <?=json_encode(($cn['contacto'] ?? '') ?: ($cn['telefono'] ?? ''), JSON_UNESCAPED_UNICODE)?>,
@@ -1978,7 +1980,7 @@ const mdGlobalProNormalesData = [
     caduca: <?=json_encode($cn['fecha_caducidad'] ?? '', JSON_UNESCAPED_UNICODE)?>,
     nota: <?=json_encode($cn['nota'] ?? '', JSON_UNESCAPED_UNICODE)?>
   },
-<?php endforeach; ?>
+<?php $mdNormalSearchIndex++; endforeach; ?>
 ];
 </script>
 
@@ -2009,7 +2011,7 @@ function mdProHighlight(el){
   el.classList.add('mdGlobalHighlight');
   setTimeout(function(){ el.classList.remove('mdGlobalHighlight'); }, 3500);
 }
-function mdProOpenTarget(id, modalId, nombre, tipo){
+function mdProOpenTarget(id, modalId, nombre, tipo, pagina){
   var el = null;
 
   if(modalId){
@@ -2047,6 +2049,17 @@ function mdProOpenTarget(id, modalId, nombre, tipo){
 
   if(id) el = document.getElementById(id);
 
+  // Los clientes normales están paginados. Si el resultado está en otra página,
+  // recargamos directamente esa página y dejamos marcada la ficha para abrirla.
+  if(tipo === 'normal' && !el && pagina){
+    var destino = new URL(window.location.href);
+    destino.searchParams.set('pagina_normales', String(pagina));
+    destino.searchParams.set('open_normal', id || '');
+    destino.hash = 'clientesNormales';
+    window.location.href = destino.toString();
+    return;
+  }
+
   if(!el && nombre){
     var selector = tipo === 'normal' ? '.normalCard, article' : '.client, article';
     var items = document.querySelectorAll(selector);
@@ -2067,7 +2080,7 @@ function mdProOpenTarget(id, modalId, nombre, tipo){
     mdProHighlight(el);
   }
 }
-function mdProItem(title, meta, typeTxt, typeClass, id, modal, tipo){
+function mdProItem(title, meta, typeTxt, typeClass, id, modal, tipo, pagina){
   var div = document.createElement('div');
   div.className = 'mdGlobalProItem';
 
@@ -2081,7 +2094,7 @@ function mdProItem(title, meta, typeTxt, typeClass, id, modal, tipo){
 
   div.onclick = function(e){
     e.preventDefault();
-    mdProOpenTarget(id || '', modal || '', title || '', tipo || '');
+    mdProOpenTarget(id || '', modal || '', title || '', tipo || '', pagina || 0);
   };
 
   return div;
@@ -2144,7 +2157,8 @@ function mdGlobalProSearch(){
       'normal',
       x.id || '',
       '',
-      'normal'
+      'normal',
+      x.pagina || 1
     );
   });
 
@@ -2157,5 +2171,22 @@ function mdGlobalProClear(){
   if(input) input.value = '';
   mdGlobalProSearch();
 }
+
+document.addEventListener('DOMContentLoaded', function(){
+  var params = new URLSearchParams(window.location.search);
+  var normalId = params.get('open_normal');
+  if(!normalId) return;
+
+  var card = document.getElementById(normalId);
+  if(card){
+    card.classList.add('editing');
+    setTimeout(function(){ mdProHighlight(card); }, 150);
+  }
+
+  // Limpiamos el parámetro para que al recargar no vuelva a abrirse solo.
+  params.delete('open_normal');
+  var cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
+  window.history.replaceState({}, '', cleanUrl);
+});
 </script>
 </body></html>
