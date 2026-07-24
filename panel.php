@@ -182,6 +182,8 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS clientes(id INT AUTO_INCREMENT PRIMARY KE
 $pdo->exec("CREATE TABLE IF NOT EXISTS referidos(id INT AUTO_INCREMENT PRIMARY KEY,cliente_id INT NOT NULL,nombre VARCHAR(150) NOT NULL,fecha_alta DATE NULL,fecha_caducidad DATE NULL,estado VARCHAR(20) DEFAULT 'Activo',nota TEXT,creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $pdo->exec("CREATE TABLE IF NOT EXISTS clientes_normales(id INT AUTO_INCREMENT PRIMARY KEY,nombre VARCHAR(150) NOT NULL,contacto VARCHAR(150) DEFAULT '',telefono VARCHAR(150) DEFAULT '',telegram VARCHAR(100) DEFAULT '',fecha_alta DATE NULL,fecha_caducidad DATE NULL,estado VARCHAR(20) DEFAULT 'Activo',nota TEXT,creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $pdo->exec("CREATE TABLE IF NOT EXISTS clientes_normales_backups(id BIGINT AUTO_INCREMENT PRIMARY KEY,creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,total_clientes INT NOT NULL DEFAULT 0,motivo VARCHAR(100) NOT NULL DEFAULT 'Importación Sigma',datos LONGTEXT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("CREATE TABLE IF NOT EXISTS configuracion_sigma(id TINYINT PRIMARY KEY,token LONGTEXT NULL,actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("INSERT IGNORE INTO configuracion_sigma(id,token) VALUES(1,NULL)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS configuracion_niveles(id INT AUTO_INCREMENT PRIMARY KEY,nivel VARCHAR(50),min_activos INT,trimestral DECIMAL(10,2),semestral DECIMAL(10,2),anual DECIMAL(10,2)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 foreach(['contacto'=>"ALTER TABLE clientes ADD contacto VARCHAR(150) DEFAULT ''",'telefono'=>"ALTER TABLE clientes ADD telefono VARCHAR(150) DEFAULT ''",'telegram'=>"ALTER TABLE clientes ADD telegram VARCHAR(100) DEFAULT ''",'nota'=>"ALTER TABLE clientes ADD nota TEXT"] as $c=>$sql){ if(!hasCol($pdo,'clientes',$c)) $pdo->exec($sql); }
 foreach(['fecha_alta'=>"ALTER TABLE referidos ADD fecha_alta DATE NULL",'fecha_caducidad'=>"ALTER TABLE referidos ADD fecha_caducidad DATE NULL",'estado'=>"ALTER TABLE referidos ADD estado VARCHAR(20) DEFAULT 'Activo'",'nota'=>"ALTER TABLE referidos ADD nota TEXT"] as $c=>$sql){ if(!hasCol($pdo,'referidos',$c)) $pdo->exec($sql); }
@@ -283,6 +285,26 @@ function sigmaGetJson($url,$token){
   if(!is_array($json)) throw new Exception('Sigma devolvió una respuesta JSON no válida.');
   return $json;
 }
+function sigmaTokenLimpio($valor){
+  $valor=trim((string)$valor);
+  // Admite pegar el valor solo, "Bearer ..." o la cabecera completa "Authorization: Bearer ...".
+  $valor=preg_replace('/^Authorization\s*:\s*/i','',$valor);
+  $valor=preg_replace('/^Bearer\s+/i','',$valor);
+  return trim((string)$valor);
+}
+function sigmaTokenActual($pdo){
+  try{
+    $token=(string)$pdo->query("SELECT token FROM configuracion_sigma WHERE id=1 LIMIT 1")->fetchColumn();
+    $token=sigmaTokenLimpio($token);
+    if($token!=='') return $token;
+  }catch(Throwable $e){}
+  return sigmaTokenLimpio((string)getenv('SIGMA_API_TOKEN'));
+}
+function sigmaBaseUrl(){
+  $base=trim((string)getenv('SIGMA_API_URL'));
+  return $base!=='' ? $base : 'https://mdprime.sigma.st/api/customers';
+}
+
 function sigmaRowsAndLastPage($json){
   $rows=[];$last=1;
   if(isset($json['data']) && is_array($json['data'])){
@@ -438,11 +460,31 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       }
     }
 
+    if($a==='save_sigma_token'){
+      $token=sigmaTokenLimpio($_POST['sigma_token']??'');
+      if($token==='') throw new Exception('Pega el token de Sigma antes de guardar.');
+      if(strlen($token)<20) throw new Exception('El token parece incompleto. Cópialo entero desde F12.');
+      $st=$pdo->prepare("INSERT INTO configuracion_sigma(id,token) VALUES(1,?) ON DUPLICATE KEY UPDATE token=VALUES(token), actualizado_en=CURRENT_TIMESTAMP");
+      $st->execute([$token]);
+      $msg='Token de Sigma guardado correctamente en Railway.';
+    }
+    if($a==='clear_sigma_token'){
+      $pdo->exec("UPDATE configuracion_sigma SET token=NULL WHERE id=1");
+      $msg='Token guardado eliminado. El panel usará el token de Render si todavía existe.';
+    }
+    if($a==='test_sigma'){
+      $token=sigmaTokenActual($pdo);
+      if($token==='') throw new Exception('No hay ningún token de Sigma configurado.');
+      $base=sigmaBaseUrl();
+      $sep=str_contains($base,'?')?'&':'?';
+      $json=sigmaGetJson($base.$sep.http_build_query(['page'=>1,'perPage'=>1]),$token);
+      [$rows,$last]=sigmaRowsAndLastPage($json);
+      $msg='Conexión con Sigma correcta · Token válido · API responde correctamente.';
+    }
     if($a==='import_sigma'){
-      $token=trim((string)getenv('SIGMA_API_TOKEN'));
-      if($token==='') throw new Exception('Falta configurar SIGMA_API_TOKEN en Render.');
-      $base=trim((string)getenv('SIGMA_API_URL'));
-      if($base==='') $base='https://mdprime.sigma.st/api/customers';
+      $token=sigmaTokenActual($pdo);
+      if($token==='') throw new Exception('Falta configurar el token de Sigma. Guárdalo en Configuración Sigma o en Render.');
+      $base=sigmaBaseUrl();
 
       // Primero descargamos todo de Sigma. No modificamos Railway hasta tener la lista completa.
       $usuariosSigma=[];
@@ -559,6 +601,12 @@ foreach($clientesNormales as $cn){
   if(($cn['estado']??'')==='Activo' && (empty($cn['fecha_caducidad']) || $cn['fecha_caducidad'] >= $today)) $totalNormalesActivos++;
   else $totalNormalesInactivos++;
 }
+
+$sigmaCfg=$pdo->query("SELECT token,actualizado_en FROM configuracion_sigma WHERE id=1 LIMIT 1")->fetch() ?: ['token'=>null,'actualizado_en'=>null];
+$sigmaTokenDb=sigmaTokenLimpio($sigmaCfg['token']??'');
+$sigmaTokenEnv=sigmaTokenLimpio((string)getenv('SIGMA_API_TOKEN'));
+$sigmaTokenDisponible=($sigmaTokenDb!=='' || $sigmaTokenEnv!=='');
+$sigmaTokenOrigen=$sigmaTokenDb!=='' ? 'Railway' : ($sigmaTokenEnv!=='' ? 'Render' : 'Sin configurar');
 
 /* ===== TOTALES GENERALES DEL PANEL ===== */
 $totalGestionado = $totalClientes + $totalRefs + $totalNormales;
@@ -1490,6 +1538,32 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
 
 <section class="dashboard" id="dashboard"><div class="center panel"><div class="alerts"><div class="alert">⚠️ Caducan en 3 días <b><?= $caducan7 ?></b></div><div class="alert">🔁 Repetidos <b><?= $totalDuplicadosReferidos ?></b></div><div class="alert">🏆 Cerca de subir <b><?= $nearUpgrade ?></b></div><div class="alert">💎 Platinum <b><?= $platinumCount ?></b></div><div class="alert">📊 Controlados <b><?= $totalGestionado ?></b></div></div><div class="stats"><div class="stat"><div class="ico">🏆</div><div><b><?= $totalClientes ?></b><span>Referentes</span></div></div><div class="stat"><div class="ico">👥</div><div><b><?= $totalRefs ?></b><span>Referidos</span></div></div><div class="stat"><div class="ico">👤</div><div><b><?= $totalNormales ?></b><span>Clientes normales</span></div></div><div class="stat"><div class="ico">📊</div><div><b><?= $totalGestionado ?></b><span>Total gestionado</span></div></div><div class="stat"><div class="ico">✅</div><div><b><?= $totalActivosGlobal ?></b><span>Activos globales <?= ($totalActivosGlobal+$totalInactivosGlobal)>0 ? '('.$pctActGlobal.'%)' : '' ?></span></div></div><div class="stat"><div class="ico">❌</div><div><b><?= $totalInactivosGlobal ?></b><span>Inactivos globales <?= ($totalActivosGlobal+$totalInactivosGlobal)>0 ? '('.(100-$pctActGlobal).'%)' : '' ?></span></div></div></div><div class="mid"><div class="level panel"><h3>Nivel actual destacado</h3><div class="levelInner"><div class="medal"><?= $topNivel['icon'] ?></div><div><div class="levelName"><?= h($topNivel['nivel']) ?></div><div><?= $top ? h($top['nombre']).' · '.(int)$top['activos'].' referidos activos' : 'Sin clientes todavía' ?></div></div></div><div style="margin-top:16px;color:#e7edf5"><?= $next ? 'Siguiente nivel: '.h($next['nivel']).' ('.(int)$next['min_activos'].' activos)' : 'Nivel máximo alcanzado' ?></div><div class="progress"><div class="bar" style="--w:<?= $progress ?>%"></div></div></div><div class="donutBox panel"><h3>Referidos por estado</h3><div class="donutWrap"><div class="donut" style="--p:<?= $pctAct ?>"><div class="donutIn"><div><b><?= $totalRefs ?></b><br><span>Total</span></div></div></div><div class="legend"><div><span class="sq g"></span> Activos: <?= $totalActivos ?> <?= $totalRefs?'('.$pctAct.'%)':'' ?></div><div><span class="sq r"></span> Inactivos: <?= $totalInactivos ?> <?= $totalRefs?'('.(100-$pctAct).'%)':'' ?></div></div></div></div></div><div class="bottomGrid"><div class="box panel" id="referidos"><h3>Últimos referidos</h3><table class="miniTable"><thead><tr><th>Nombre</th><th>Fecha</th><th>Estado</th><th>Cliente</th></tr></thead><tbody><?php foreach($latest as $r): ?><tr><td><?=h($r['nombre'])?></td><td><?=h($r['fecha_alta'] ?: '-')?></td><td class="<?= $r['estado']==='Activo'?'activo':'inactivo' ?>"><?=h($r['estado'])?></td><td><?=h($r['cliente_nombre'])?></td></tr><?php endforeach; if(!$latest): ?><tr><td colspan="4">Sin referidos todavía.</td></tr><?php endif; ?></tbody></table></div><div class="box panel" id="ranking"><h3>Ranking visual</h3><div class="rankCards"><?php foreach(array_slice($clientes,0,5) as $i=>$c): ?><div class="rankCard"><div><?= $i==0?'🥇':($i==1?'🥈':($i==2?'🥉':'#'.($i+1))) ?> <strong><?=h($c['nombre'])?></strong></div><span class="gold"><?= (int)$c['activos'] ?> activos</span></div><?php endforeach; if(!$clientes): ?><div class="note">Sin clientes.</div><?php endif; ?></div></div></div></div><aside class="right"><div class="infoCard panel"><h3>Ahora MySQL</h3><div class="mysql">MySQL</div><ul><li><span class="ok">✔</span> Datos seguros y permanentes</li><li><span class="ok">✔</span> Acceso desde cualquier móvil</li><li><span class="ok">✔</span> Niveles automáticos</li></ul></div><div class="infoCard panel" id="caducidades"><h3>Próximas caducidades</h3><div class="expiryList"><?php foreach($soon as $s): ?><div class="expiry"><div><b><?= date('d/m', strtotime($s['fecha_caducidad'])) ?></b><br><?=h($s['nombre'])?></div><span><?=h($s['cliente_nombre'])?></span></div><?php endforeach; if(!$soon): ?><div class="note">Sin caducidades próximas.</div><?php endif; ?></div></div><div class="infoCard panel"><h3>Importación</h3><div style="font-size:50px">🏆</div><h2 style="margin:0"><?= $totalRefs ?> referidos controlados</h2><p class="muted">Clientes, notas, fechas y caducidades guardadas.</p></div></aside></section>
 <form class="formAdd panel" method="post" id="addCliente"><input type="hidden" name="action" value="add_cliente"><div><label>Cliente referente</label><input name="nombre" placeholder="Nombre" required></div><div><label>WhatsApp / Contacto</label><input name="contacto" placeholder="WhatsApp o email"></div><div><label>Telegram referente</label><input name="telegram" placeholder="@usuarioTelegram"></div><div><label>Nota rápida</label><input name="nota" placeholder="Ej: cliente anual, confianza..."></div><button class="btn green">➕ Añadir</button></form>
+<style>
+@media(max-width:760px){
+  #configSigma form[method="post"]{grid-template-columns:1fr!important}
+  #configSigma>div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+}
+</style>
+<section class="panel" id="configSigma" style="padding:18px;margin:16px 0;border-color:rgba(31,182,255,.40)">
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+    <div>
+      <h2 style="margin:0 0 6px">⚙️ CONFIGURACIÓN SIGMA</h2>
+      <div class="note" style="margin:0">Estado: <b><?= $sigmaTokenDisponible?'🟢 Token configurado':'🔴 Sin token' ?></b> · Origen: <b><?=h($sigmaTokenOrigen)?></b><?php if($sigmaTokenDb!=='' && !empty($sigmaCfg['actualizado_en'])): ?> · Actualizado: <b><?=h(date('d/m/Y H:i',strtotime($sigmaCfg['actualizado_en'])))?></b><?php endif; ?></div>
+    </div>
+  </div>
+  <form method="post" style="display:grid;grid-template-columns:minmax(260px,1fr) auto auto;gap:10px;align-items:end;margin-top:13px">
+    <input type="hidden" name="action" value="save_sigma_token">
+    <div><label>Token nuevo de Sigma</label><input type="password" name="sigma_token" autocomplete="off" placeholder="Pega el token completo; admite Bearer o Authorization: Bearer" required></div>
+    <button class="btn green">💾 Guardar token</button>
+    <button class="btn dark" type="button" onclick="this.form.sigma_token.type=this.form.sigma_token.type==='password'?'text':'password'">👁️ Mostrar/Ocultar</button>
+  </form>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+    <form method="post"><input type="hidden" name="action" value="test_sigma"><button class="btn green" style="width:100%">🔌 Probar conexión con Sigma</button></form>
+    <form method="post" onsubmit="return confirm('¿Eliminar el token guardado en Railway?')"><input type="hidden" name="action" value="clear_sigma_token"><button class="btn red" style="width:100%">🗑️ Borrar token guardado</button></form>
+  </div>
+  <div class="note" style="margin:12px 0 0">Para renovarlo: Sigma → F12 → Network/Red → abre una petición como <b>me</b> → Request Headers → copia el valor de <b>Authorization</b>. Puedes pegarlo completo; el panel elimina automáticamente “Bearer”.</div>
+</section>
+
 <section class="normalesPanel panel" id="clientesNormales"><div class="normalesHead"><h2>👤 CLIENTES NORMALES</h2><span class="normalesBadge">Activos <?=$totalNormalesActivos?> · Inactivos <?=$totalNormalesInactivos?> · Total <?=$totalNormales?></span></div><div class="note">Clientes sin programa de referidos. Precios normales: 3 meses 35€ · 6 meses 55€ · 12 meses 80€.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0"><form method="post" onsubmit="return confirm('Se creará una copia de seguridad automática en Railway y después se importarán usuarios y caducidades desde Sigma. No se borrará ningún cliente. ¿Continuar?')"><input type="hidden" name="action" value="import_sigma"><button class="btn green" style="width:100%">📥 Importar usuarios y caducidades desde Sigma</button></form><form method="post"><input type="hidden" name="action" value="export_json"><button class="btn dark" style="width:100%">💾 Descargar copia completa JSON</button></form></div><form class="normalesForm" method="post"><input type="hidden" name="action" value="add_normal"><div><label>Cliente normal</label><input name="nombre" placeholder="Usuario" required></div><div><label>Contacto</label><input name="contacto" placeholder="WhatsApp o email"></div><div><label>Telegram</label><input name="telegram" placeholder="@usuario"></div><div><label>Alta</label><input type="date" name="fecha_alta" value="<?=$today?>"></div><div><label>Caduca</label><input type="date" name="fecha_caducidad"></div><button class="btn green">➕ Añadir normal</button><div style="grid-column:1/-1"><label>Nota</label><input name="nota" placeholder="Nota privada"></div></form><div class="normalesGrid"><?php foreach($clientesNormalesPagina as $cn): $normalActivo=(($cn['estado']??'')==='Activo' && (empty($cn['fecha_caducidad']) || $cn['fecha_caducidad'] >= $today)); ?><article id="normal<?=$cn['id']?>" class="normalCard mdSearchTarget" data-md-type="normal" data-md-search="<?=h(strtolower(($cn['nombre']??'').' '.($cn['telegram']??'').' '.($cn['contacto']??'').' '.($cn['telefono']??'').' '.($cn['estado']??'').' '.($cn['fecha_caducidad']??'').' '.($cn['nota']??'')))?>"><div class="normalTop"><div><div class="normalNombre"><?=h($cn['nombre'])?></div><div class="normalMeta">Alta: <?=h($cn['fecha_alta'] ?: '-')?> · Caduca: <?=h($cn['fecha_caducidad'] ?: 'Sin fecha')?></div><div class="normalMeta">Telegram: <?=!empty($cn['telegram'])?'@'.h($cn['telegram']):'Sin Telegram'?> · Contacto: <?=h(($cn['contacto'] ?: $cn['telefono']) ?: '-')?></div><div class="normalMeta"><?= $cn['nota'] ? h($cn['nota']) : 'Sin nota' ?></div></div><span class="status <?=$normalActivo?'act':'in'?>"><?=$normalActivo?'Activo':'Inactivo'?></span></div><div class="normalActions"><button class="btn dark small" type="button" onclick="this.closest('.normalCard').classList.toggle('editing')">Editar</button><form method="post"><input type="hidden" name="action" value="renew_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><input type="hidden" name="months" value="3"><button class="btn green small">+3 Meses</button></form><form method="post"><input type="hidden" name="action" value="renew_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><input type="hidden" name="months" value="6"><button class="btn green small">+6 Meses</button></form><form method="post"><input type="hidden" name="action" value="renew_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><input type="hidden" name="months" value="12"><button class="btn green small">+12 Meses</button></form><form method="post"><input type="hidden" name="action" value="toggle_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><button class="btn small">Activo/Inactivo</button></form></div><div class="normalEdit"><form method="post" style="display:grid;gap:8px"><input type="hidden" name="action" value="update_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><label>Nombre</label><input name="nombre" value="<?=h($cn['nombre'])?>" required><label>Contacto</label><input name="contacto" value="<?=h($cn['contacto'] ?: $cn['telefono'])?>"><label>Telegram</label><input name="telegram" value="<?=h($cn['telegram'])?>"><label>Alta</label><input type="date" name="fecha_alta" value="<?=h($cn['fecha_alta'])?>"><label>Caduca</label><input type="date" name="fecha_caducidad" value="<?=h($cn['fecha_caducidad'])?>"><label>Estado</label><select name="estado"><option <?=$cn['estado']==='Activo'?'selected':''?>>Activo</option><option <?=$cn['estado']!=='Activo'?'selected':''?>>Inactivo</option></select><label>Nota</label><input name="nota" value="<?=h($cn['nota'])?>"><button class="btn green">Guardar cambios</button></form><form method="post" onsubmit="return confirm('¿Eliminar definitivamente este cliente normal?')" style="margin-top:8px"><input type="hidden" name="action" value="delete_normal"><input type="hidden" name="normal_id" value="<?=$cn['id']?>"><button class="btn red">Eliminar cliente normal</button></form></div></article><?php endforeach; if(!$clientesNormales): ?><div class="note">Todavía no hay clientes normales añadidos.</div><?php endif; ?></div>
 <div class="mdPagination" id="normalesPaginacion">
   <a class="btn small dark <?= $paginaNormales <= 1 ? 'disabled' : '' ?>" href="<?=h(pageUrl('pagina_normales', $paginaNormales-1))?>#clientesNormales">⬅ Anterior</a>
