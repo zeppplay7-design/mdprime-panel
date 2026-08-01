@@ -616,6 +616,20 @@ $pctActGlobal = ($totalActivosGlobal + $totalInactivosGlobal) > 0
   ? round(($totalActivosGlobal / ($totalActivosGlobal + $totalInactivosGlobal)) * 100)
   : 0;
 
+
+/* ===== EXPORTAR TODOS LOS CADUCADOS ===== */
+$caducadosExport=[];
+$cadRef=$pdo->query("SELECT r.nombre, r.fecha_caducidad, c.nombre AS referente FROM referidos r LEFT JOIN clientes c ON c.id=r.cliente_id WHERE r.fecha_caducidad IS NOT NULL AND r.fecha_caducidad < CURDATE() ORDER BY r.fecha_caducidad ASC, r.nombre ASC")->fetchAll();
+foreach($cadRef as $x){
+  $caducadosExport[]=['usuario'=>$x['nombre'],'fecha'=>$x['fecha_caducidad'],'tipo'=>'Referido','referente'=>$x['referente'] ?: 'Sin referente'];
+}
+$cadNorm=$pdo->query("SELECT nombre, fecha_caducidad FROM clientes_normales WHERE fecha_caducidad IS NOT NULL AND fecha_caducidad < CURDATE() ORDER BY fecha_caducidad ASC, nombre ASC")->fetchAll();
+foreach($cadNorm as $x){
+  $caducadosExport[]=['usuario'=>$x['nombre'],'fecha'=>$x['fecha_caducidad'],'tipo'=>'Cliente normal','referente'=>'-'];
+}
+usort($caducadosExport,function($a,$b){ return strcmp($a['fecha'],$b['fecha']); });
+$totalCaducadosExport=count($caducadosExport);
+
 /* ===== PAGINACIÓN CLIENTES NORMALES: 6 POR PÁGINA ===== */
 $normalesPorPagina = 6;
 $paginaNormales = max(1, (int)($_GET['pagina_normales'] ?? 1));
@@ -1678,7 +1692,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
 <section class="inactivosPanel panel" id="inactivos">
   <div class="inactivosHead">
     <h2>❌ Referidos inactivos</h2>
-    <span class="inactivosBadge"><?= count($referidosInactivos) ?> inactivos · con referente asignado</span>
+    <span class="inactivosBadge"><?= count($referidosInactivos) ?> inactivos · con referente asignado</span><button type="button" class="btn green" onclick="copiarCaducadosMDPrime()">📋 COPIAR TODOS LOS CADUCADOS (<?= $totalCaducadosExport ?>)</button>
   </div>
   <div class="inactivosGrid">
     <?php foreach($referidosInactivosPagina as $ri): ?>
@@ -2261,5 +2275,20 @@ document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){ mdProHighlight(card); }, 250);
   }
 });
+</script>
+
+<script>
+window.mdprimeCaducados = <?=json_encode($caducadosExport,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)?>;
+function copiarCaducadosMDPrime(){
+ let lista="❌ USUARIOS CADUCADOS MDPRIME\n\n";
+ lista+="TOTAL: "+window.mdprimeCaducados.length+"\n\n";
+ window.mdprimeCaducados.forEach((u,i)=>{
+   lista+=(i+1)+". 👤 "+u.usuario+"\n";
+   lista+="📅 Caducidad: "+u.fecha+"\n";
+   lista+="🏷 Tipo: "+u.tipo+"\n";
+   lista+="👥 Referente: "+u.referente+"\n\n";
+ });
+ navigator.clipboard.writeText(lista).then(()=>alert("✅ Lista de caducados copiada"));
+}
 </script>
 </body></html>
