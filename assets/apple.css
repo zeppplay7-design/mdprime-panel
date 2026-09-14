@@ -169,3 +169,234 @@ label { color: #3a3a3c !important; font-weight: 650 !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* =========================================================
+   MDPRIME APPLE BLACK — REDISEÑO V3
+   ========================================================= */
+:root {
+  --bg: #000 !important;
+  --panel: #111113 !important;
+  --panel2: #18181b !important;
+  --gold: #0a84ff !important;
+  --gold2: #0066cc !important;
+  --line: rgba(255,255,255,.09) !important;
+  --txt: #f5f5f7 !important;
+  --muted: #98989d !important;
+  --shadow: 0 20px 60px rgba(0,0,0,.42) !important;
+  --radius: 24px !important;
+}
+
+html, body { background: #000 !important; color: #f5f5f7 !important; }
+body::before {
+  background:
+    radial-gradient(circle at 76% -10%, rgba(10,132,255,.20), transparent 31%),
+    radial-gradient(circle at 18% 18%, rgba(94,92,230,.11), transparent 25%),
+    linear-gradient(145deg,#000 0%,#050507 50%,#08090c 100%) !important;
+}
+
+.app {
+  grid-template-columns: 280px minmax(0,1fr) !important;
+  gap: 0 !important;
+}
+.sidebar {
+  margin: 18px 0 18px 18px !important;
+  height: calc(100vh - 36px) !important;
+  padding: 22px 14px !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  border-radius: 28px !important;
+  background: rgba(18,18,20,.82) !important;
+  box-shadow: 0 24px 80px rgba(0,0,0,.55) !important;
+  backdrop-filter: blur(30px) saturate(150%) !important;
+}
+.logo {
+  color: #fff !important;
+  font-size: 32px !important;
+  padding: 10px 14px 19px !important;
+  margin: 0 0 8px !important;
+}
+.logo::before {
+  content: "";
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 9px;
+  border-radius: 50%;
+  background: #0a84ff;
+  box-shadow: 0 0 20px rgba(10,132,255,.85);
+  vertical-align: 5px;
+}
+.logo small { color: #8e8e93 !important; margin-left: 30px !important; }
+.nav a, .quick a, .quick button {
+  min-height: 48px !important;
+  color: #aeaeb2 !important;
+  padding: 12px 14px !important;
+  border-radius: 14px !important;
+  font-size: 14px !important;
+}
+.nav a.active {
+  color: #fff !important;
+  background: linear-gradient(135deg,#0a84ff,#0066cc) !important;
+  box-shadow: 0 10px 28px rgba(10,132,255,.30) !important;
+}
+.nav a:hover, .quick a:hover, .quick button:hover {
+  color: #fff !important;
+  background: rgba(255,255,255,.075) !important;
+}
+.quick {
+  margin-top: 24px !important;
+  padding: 12px !important;
+  border: 1px solid rgba(255,255,255,.07) !important;
+  background: rgba(255,255,255,.025) !important;
+  box-shadow: none !important;
+}
+.quick h4 { color: #636366 !important; }
+
+.main {
+  max-width: none !important;
+  padding: 34px 34px 110px !important;
+}
+.header {
+  min-height: 112px;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 8px !important;
+  margin-bottom: 20px !important;
+}
+.header h1 {
+  color: #f5f5f7 !important;
+  font-size: clamp(36px,4vw,58px) !important;
+  font-weight: 750 !important;
+  letter-spacing: -.055em !important;
+  line-height: .98 !important;
+}
+.header h1 span {
+  color: transparent !important;
+  background: linear-gradient(90deg,#0a84ff,#64d2ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.header p {
+  color: #8e8e93 !important;
+  font-size: 15px !important;
+  letter-spacing: 0 !important;
+  margin-top: 13px !important;
+}
+.admin {
+  top: 16px !important;
+  color: #d1d1d6 !important;
+  background: rgba(28,28,30,.82) !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  box-shadow: 0 12px 32px rgba(0,0,0,.30) !important;
+}
+
+.panel, .stat, .alert, .levelCard, .normalCard, .ref, .rankCard, .expiry, .note, .price, .metric {
+  color: #f5f5f7 !important;
+  border: 1px solid rgba(255,255,255,.085) !important;
+  background: linear-gradient(145deg,rgba(26,26,29,.94),rgba(14,14,16,.96)) !important;
+  box-shadow: 0 18px 46px rgba(0,0,0,.26) !important;
+}
+.panel { border-radius: 24px !important; }
+.center { padding: 20px !important; }
+.dashboard { gap: 18px !important; }
+.right { gap: 18px !important; }
+.alerts { gap: 10px !important; margin-bottom: 16px !important; }
+.alert {
+  min-height: 78px;
+  padding: 15px !important;
+  color: #aeaeb2 !important;
+  font-size: 13px !important;
+  border-radius: 18px !important;
+}
+.alert b { color: #fff !important; font-size: 26px !important; margin-top: 6px; }
+.stats { gap: 12px !important; }
+.stat {
+  min-height: 122px !important;
+  border-radius: 20px !important;
+  background: linear-gradient(145deg,#1c1c1e,#121214) !important;
+}
+.stat b { color: #fff !important; font-size: 38px !important; letter-spacing: -.04em; }
+.stat span { color: #8e8e93 !important; }
+.ico { font-size: 38px !important; opacity: .9; }
+.mid, .bottomGrid { gap: 16px !important; margin-top: 16px !important; }
+.level, .donutBox, .box, .infoCard { padding: 24px !important; }
+.levelName { color: #fff !important; letter-spacing: -.04em; }
+.progress, .miniBar { background: #2c2c2e !important; }
+.bar, .miniBar span { background: linear-gradient(90deg,#0a84ff,#64d2ff) !important; }
+.donutIn { background: #111113 !important; color: #fff !important; }
+.miniTable th { color: #8e8e93 !important; }
+.miniTable td { color: #e5e5ea !important; }
+
+.clientesSearchPanel,
+[id^="mdGlobal"],
+.globalSearchPanel {
+  color: #f5f5f7 !important;
+}
+.clientesSearchPanel {
+  padding: 22px !important;
+  border: 1px solid rgba(10,132,255,.24) !important;
+  background: linear-gradient(145deg,rgba(22,25,31,.98),rgba(10,10,12,.98)) !important;
+  box-shadow: 0 22px 60px rgba(0,0,0,.36), inset 0 1px rgba(255,255,255,.05) !important;
+}
+.clientesSearchPanel h2 { color: #fff !important; letter-spacing: -.025em; }
+
+input, select, textarea {
+  min-height: 48px !important;
+  color: #f5f5f7 !important;
+  background: #1c1c1e !important;
+  border: 1px solid rgba(255,255,255,.11) !important;
+  box-shadow: none !important;
+}
+input::placeholder, textarea::placeholder { color: #6e6e73 !important; }
+input:focus, select:focus, textarea:focus {
+  border-color: #0a84ff !important;
+  box-shadow: 0 0 0 4px rgba(10,132,255,.18) !important;
+}
+label { color: #aeaeb2 !important; }
+
+.btn { background: linear-gradient(135deg,#0a84ff,#0066cc) !important; color: #fff !important; }
+.btn.dark { background: #2c2c2e !important; color: #f5f5f7 !important; border-color: rgba(255,255,255,.08) !important; }
+.btn.green { background: #30d158 !important; color: #06170b !important; }
+.btn.red { background: #ff453a !important; color: #fff !important; }
+.badge { color: #64d2ff !important; background: rgba(10,132,255,.12) !important; border-color: rgba(10,132,255,.25) !important; }
+.notice { color: #8ef0a4 !important; background: rgba(48,209,88,.11) !important; }
+.note { color: #aeaeb2 !important; background: rgba(255,255,255,.035) !important; }
+.client::before { background: radial-gradient(circle,rgba(10,132,255,.18),transparent 68%) !important; }
+.client h3, .normalNombre, .rankCard strong, .sheetHead h2, .box h3, .level h3 { color: #fff !important; }
+.price b, .gold, .expiry b { color: #64d2ff !important; }
+
+.modal { background: rgba(0,0,0,.72) !important; }
+.sheet { background: #09090b !important; border: 1px solid rgba(255,255,255,.10) !important; }
+.sheetHead { background: rgba(18,18,20,.90) !important; border-bottom: 1px solid rgba(255,255,255,.08) !important; }
+.tabs a { color: #64d2ff !important; background: rgba(10,132,255,.12) !important; }
+.ref { background: #161618 !important; }
+
+.mobileNav {
+  background: rgba(12,12,14,.90) !important;
+  border-top: 1px solid rgba(255,255,255,.10) !important;
+}
+.mobileNav a { color: #64d2ff !important; }
+
+.loginPage { background: #000 !important; }
+.loginPage .login {
+  color: #fff !important;
+  background: linear-gradient(145deg,rgba(28,28,30,.96),rgba(12,12,14,.98)) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  box-shadow: 0 30px 100px rgba(0,0,0,.70) !important;
+}
+.loginPage .brand { color: #fff !important; }
+.loginPage .sub, .loginPage .hint { color: #8e8e93 !important; }
+.loginPage .lock { color: #fff; background: linear-gradient(145deg,#1c1c1e,#101012) !important; box-shadow: 0 12px 32px rgba(10,132,255,.18) !important; }
+
+@media (max-width: 980px) {
+  .sidebar { margin: 0 !important; height: auto !important; border-radius: 0 !important; }
+  .main { padding: 22px 16px 100px !important; }
+  .header { min-height: 96px; }
+}
+
+@media (max-width: 760px) {
+  .header h1 { font-size: 34px !important; }
+  .alerts { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+  .stat { min-height: 102px !important; }
+  .center, .level, .donutBox, .box, .infoCard { padding: 16px !important; }
+}
