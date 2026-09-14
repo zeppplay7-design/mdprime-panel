@@ -2354,7 +2354,10 @@ function copiarCaducadosMDPrime(){
   'normales'=>$totalNormales,
   'duplicados'=>$totalDuplicadosReferidos,
   'inactivos'=>$totalInactivosGlobal,
-  'caducan'=>$caducan7
+  'caducan'=>$caducan7,
+  'total'=>$totalGestionado,
+  'activos'=>$totalActivosGlobal,
+  'porcentaje_activos'=>$pctActGlobal
 ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?>;</script>
 <script src="assets/apple-app.js?v=2" defer></script>
 </body></html>

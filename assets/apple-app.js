@@ -314,6 +314,48 @@
     try { if (localStorage.getItem('mdprime-compact') === '1') document.body.classList.add('compactMode'); } catch (_) {}
   }
 
+  function buildMinimalDashboard() {
+    const dashboard = document.getElementById('dashboard');
+    const center = dashboard?.querySelector('.center');
+    const right = dashboard?.querySelector('.right');
+    if (!dashboard || !center || dashboard.querySelector('.minimalSummary')) return;
+    const m = window.MDPRIME_METRICS || {};
+
+    const summary = document.createElement('section');
+    summary.className = 'minimalSummary';
+    summary.innerHTML = `
+      <article><span>Total gestionado</span><strong>${m.total ?? 0}</strong><small>${m.referentes ?? 0} referentes · ${m.normales ?? 0} clientes directos</small></article>
+      <article><span>Usuarios activos</span><strong>${m.activos ?? 0}</strong><small>${m.porcentaje_activos ?? 0}% de la cartera</small></article>
+      <article><span>Usuarios inactivos</span><strong>${m.inactivos ?? 0}</strong><small>Requieren seguimiento</small></article>
+      <article class="attention"><span>Próximos 3 días</span><strong>${m.caducan ?? 0}</strong><small>Caducidades previstas</small></article>`;
+    center.prepend(summary);
+
+    const oldAlerts = center.querySelector('.alerts');
+    const oldStats = center.querySelector('.stats');
+    if (oldAlerts) oldAlerts.hidden = true;
+    if (oldStats) oldStats.hidden = true;
+
+    const expiry = document.getElementById('caducidades');
+    const bottom = center.querySelector('.bottomGrid');
+    if (expiry && bottom) {
+      expiry.classList.add('compactExpiry');
+      bottom.appendChild(expiry);
+    }
+    if (right) right.hidden = true;
+
+    const level = center.querySelector('.level');
+    const medal = level?.querySelector('.medal');
+    if (medal) medal.hidden = true;
+    const levelTitle = level?.querySelector('h3');
+    if (levelTitle) levelTitle.textContent = 'Mejor rendimiento';
+    const chartTitle = center.querySelector('.donutBox h3');
+    if (chartTitle) chartTitle.textContent = 'Estado de los referidos';
+    const latestTitle = center.querySelector('#referidos h3');
+    if (latestTitle) latestTitle.textContent = 'Actividad reciente';
+    const rankingTitle = center.querySelector('#ranking h3');
+    if (rankingTitle) rankingTitle.textContent = 'Mejores referentes';
+  }
+
   function bridgeLegacySearch() {
     if (typeof window.mdProOpenTarget !== 'function') return;
     const original = window.mdProOpenTarget;
@@ -332,6 +374,7 @@
     bindNavigation();
     bindCommandCenter();
     improveContent();
+    buildMinimalDashboard();
     buildCollectionTools();
     bridgeLegacySearch();
     const params = new URLSearchParams(location.search);
