@@ -205,6 +205,13 @@
         openCommands();
       }
       if (event.key === 'Escape') closeCommands();
+      if (event.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) {
+        const input = document.querySelector(`.collectionTools[data-tools-view="${document.body.dataset.currentView}"] input`);
+        if (input) {
+          event.preventDefault();
+          input.focus();
+        }
+      }
     });
   }
 
@@ -239,6 +246,74 @@
     window.addEventListener('scroll', () => top.classList.toggle('visible', window.scrollY > 500), {passive: true});
   }
 
+  function cardConfigFor(view) {
+    if (view === 'clientes') return {selector: '.clients .client', container: '.clients', label: 'referentes'};
+    if (view === 'normales') return {selector: '#clientesNormales .normalCard', container: '#clientesNormales .normalesGrid', label: 'clientes'};
+    if (view === 'inactivos') return {selector: '#inactivos .inactivoCard', container: '#inactivos .inactivosGrid', label: 'inactivos'};
+    if (view === 'duplicados') return {selector: '#duplicados article, #duplicados .duplicadoCard', container: '#duplicados', label: 'resultados'};
+    return null;
+  }
+
+  function buildCollectionTools() {
+    ['clientes', 'normales', 'inactivos', 'duplicados'].forEach(view => {
+      const config = cardConfigFor(view);
+      const host = views[view]?.elements?.[0];
+      if (!config || !host || host.querySelector('.collectionTools')) return;
+      const cards = [...document.querySelectorAll(config.selector)];
+      if (!cards.length) return;
+
+      const tools = document.createElement('div');
+      tools.className = 'collectionTools';
+      tools.dataset.toolsView = view;
+      tools.innerHTML = `<div class="collectionSearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" placeholder="Filtrar ${config.label}…" aria-label="Filtrar ${config.label}"></div>
+        <div class="collectionMeta"><b>${cards.length}</b><span>${config.label}</span></div>
+        <div class="segmented" aria-label="Tipo de vista"><button type="button" data-layout="grid" class="active" title="Cuadrícula">▦</button><button type="button" data-layout="list" title="Lista">☰</button></div>
+        <button type="button" class="compactToggle" title="Alternar densidad">Compacto</button>
+        <button type="button" class="copyVisible" title="Copiar resultados visibles">Copiar</button>`;
+      host.parentNode.insertBefore(tools, host);
+
+      const input = tools.querySelector('input');
+      const meta = tools.querySelector('.collectionMeta b');
+      const applyFilter = () => {
+        const q = input.value.trim().toLowerCase();
+        let visible = 0;
+        cards.forEach(card => {
+          const text = (card.dataset.search || card.dataset.mdSearch || card.textContent || '').toLowerCase();
+          const show = !q || text.includes(q);
+          card.hidden = !show;
+          if (show) visible++;
+        });
+        meta.textContent = visible;
+        tools.classList.toggle('hasFilter', Boolean(q));
+      };
+      input.addEventListener('input', applyFilter);
+      tools.querySelectorAll('[data-layout]').forEach(button => button.addEventListener('click', () => {
+        tools.querySelectorAll('[data-layout]').forEach(item => item.classList.toggle('active', item === button));
+        const container = document.querySelector(config.container);
+        if (container) container.classList.toggle('listLayout', button.dataset.layout === 'list');
+      }));
+      tools.querySelector('.compactToggle').addEventListener('click', () => {
+        document.body.classList.toggle('compactMode');
+        try { localStorage.setItem('mdprime-compact', document.body.classList.contains('compactMode') ? '1' : '0'); } catch (_) {}
+      });
+      tools.querySelector('.copyVisible').addEventListener('click', async event => {
+        const values = cards.filter(card => !card.hidden).map(card => {
+          const title = card.querySelector('h3,.normalNombre,.inactivoNombre,b,strong');
+          return title ? title.textContent.trim() : card.textContent.trim().split('\n')[0];
+        }).filter(Boolean);
+        const text = values.join('\n');
+        try {
+          await navigator.clipboard.writeText(text);
+          event.currentTarget.textContent = 'Copiado';
+          setTimeout(() => event.currentTarget.textContent = 'Copiar', 1300);
+        } catch (_) {
+          if (typeof window.mdFallbackCopy === 'function') window.mdFallbackCopy(text);
+        }
+      });
+    });
+    try { if (localStorage.getItem('mdprime-compact') === '1') document.body.classList.add('compactMode'); } catch (_) {}
+  }
+
   function bridgeLegacySearch() {
     if (typeof window.mdProOpenTarget !== 'function') return;
     const original = window.mdProOpenTarget;
@@ -257,6 +332,7 @@
     bindNavigation();
     bindCommandCenter();
     improveContent();
+    buildCollectionTools();
     bridgeLegacySearch();
     const params = new URLSearchParams(location.search);
     let remembered = 'dashboard';

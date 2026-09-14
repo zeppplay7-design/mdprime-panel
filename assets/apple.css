@@ -550,6 +550,95 @@ body[data-current-view="normales"] #clientesNormales {
   .pageHeading p { display: none; }
 }
 
+/* Herramientas avanzadas de colecciones */
+.collectionTools {
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: minmax(240px,1fr) auto auto auto auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 11px;
+  border: 1px solid rgba(255,255,255,.085);
+  border-radius: 20px;
+  background: rgba(20,20,22,.86);
+  box-shadow: 0 16px 40px rgba(0,0,0,.22);
+  backdrop-filter: blur(24px) saturate(140%);
+}
+.collectionSearch {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 14px;
+  background: #101012;
+}
+.collectionSearch:focus-within { border-color: #0a84ff; box-shadow: 0 0 0 4px rgba(10,132,255,.14); }
+.collectionSearch svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  fill: none;
+  stroke: #636366;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.collectionSearch input {
+  min-height: 44px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.collectionMeta { min-width: 76px; display: grid; line-height: 1.05; }
+.collectionMeta b { color: #fff; font-size: 18px; }
+.collectionMeta span { color: #636366; font-size: 10px; text-transform: uppercase; }
+.collectionTools.hasFilter .collectionMeta b { color: #64d2ff; }
+.segmented { display: flex; padding: 3px; border-radius: 11px; background: #0d0d0f; }
+.segmented button, .compactToggle, .copyVisible {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px !important;
+  color: #8e8e93;
+  background: transparent;
+  font-size: 12px;
+}
+.segmented button.active { color: #fff; background: #2c2c2e !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+.compactToggle, .copyVisible { color: #d1d1d6; background: #2c2c2e !important; }
+.copyVisible { color: #64d2ff; }
+.clients.listLayout, .normalesGrid.listLayout, .inactivosGrid.listLayout {
+  grid-template-columns: 1fr !important;
+}
+.clients.listLayout .client, .normalesGrid.listLayout .normalCard, .inactivosGrid.listLayout .inactivoCard {
+  min-height: 0 !important;
+}
+.compactMode .client,
+.compactMode .normalCard,
+.compactMode .inactivoCard,
+.compactMode .ref { padding: 11px !important; border-radius: 15px !important; }
+.compactMode .client h3,
+.compactMode .normalNombre,
+.compactMode .inactivoNombre { font-size: 17px !important; }
+.compactMode .prices,
+.compactMode .metrics,
+.compactMode .note { margin-top: 7px !important; margin-bottom: 7px !important; }
+.compactMode .clientMainActions .btn,
+.compactMode .inactivoActions .btn { min-height: 44px !important; height: 44px !important; }
+@media (max-width: 900px) {
+  .collectionTools { grid-template-columns: 1fr auto auto; }
+  .collectionSearch { grid-column: 1 / -1; }
+  .collectionMeta { grid-column: 1; }
+}
+@media (max-width: 560px) {
+  .collectionTools { grid-template-columns: 1fr 1fr; }
+  .collectionMeta { grid-column: 1; }
+  .segmented { justify-self: end; }
+  .compactToggle, .copyVisible { width: 100%; }
+}
+
 /* Centro de comandos y utilidades Pro */
 .navCount {
   margin-left: auto;
