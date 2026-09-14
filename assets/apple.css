@@ -1331,3 +1331,47 @@ body > .modal .refList { max-height: none !important; overflow: visible !importa
   body > .modal .sheetHead { border-radius: 0 !important; }
   body > .modal .modalBody { padding: 8px !important; }
 }
+
+/* Fichas Pro v7: listado completo siempre accesible */
+body > .modal .modalBody {
+  grid-template-rows: auto minmax(0,1fr) !important;
+  overflow: hidden !important;
+}
+body > .modal .modalBody > section {
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden !important;
+}
+body > .modal .modalBody > section > h3:first-child,
+body > .modal .modalRefSearch,
+body > .modal .refTableHead,
+body > .modal .refListFoot { flex: 0 0 auto; }
+body > .modal .refList {
+  flex: 1 1 auto;
+  min-height: 150px !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  scrollbar-width: auto;
+  scrollbar-color: #48484a #1c1c1e;
+  overscroll-behavior: contain;
+}
+body > .modal .refList::-webkit-scrollbar { width: 12px; }
+body > .modal .refList::-webkit-scrollbar-track { background: #1c1c1e; }
+body > .modal .refList::-webkit-scrollbar-thumb { border: 3px solid #1c1c1e; border-radius: 999px; background: #48484a; }
+body > .modal .refList::-webkit-scrollbar-thumb:hover { background: #636366; }
+.refListFoot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 4px 0;
+  color: #636366;
+  font-size: 10px;
+}
+.refListFoot span:first-child { color: #8e8e93; font-weight: 650; }
+
+@media (max-width: 820px) {
+  body > .modal .modalBody { grid-template-rows: auto minmax(0,1fr) !important; }
+  .refListFoot span:last-child { display: none; }
+}

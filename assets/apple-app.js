@@ -480,12 +480,18 @@
             if (show) count++;
           });
           search.querySelector('span').textContent = count + ' usuarios';
+          const footCount = modal.querySelector('.refListFoot span');
+          if (footCount) footCount.textContent = count + ' usuarios visibles';
         });
 
         const tableHead = document.createElement('div');
         tableHead.className = 'refTableHead';
         tableHead.innerHTML = '<span>Usuario</span><span>Alta</span><span>Caducidad</span><span>Estado</span><span></span>';
         list.before(tableHead);
+        const listFoot = document.createElement('div');
+        listFoot.className = 'refListFoot';
+        listFoot.innerHTML = `<span>${cards.length} usuarios cargados</span><span>Desplázate para verlos todos ↓</span>`;
+        list.after(listFoot);
 
         const drawerBackdrop = document.createElement('button');
         drawerBackdrop.type = 'button';
