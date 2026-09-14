@@ -356,6 +356,106 @@
     if (rankingTitle) rankingTitle.textContent = 'Mejores referentes';
   }
 
+  function simplifyModals() {
+    document.querySelectorAll('.modal').forEach(modal => {
+      const sheet = modal.querySelector('.sheet');
+      const body = modal.querySelector('.modalBody');
+      if (!sheet || !body || sheet.dataset.minimalReady) return;
+      sheet.dataset.minimalReady = '1';
+
+      const left = body.querySelector(':scope > aside');
+      const right = body.querySelector(':scope > section');
+      if (!left || !right) return;
+
+      const tabs = modal.querySelector('.tabs');
+      if (tabs) tabs.remove();
+      const headerLevel = modal.querySelector('.sheetHead .gold');
+      if (headerLevel) headerLevel.classList.add('minimalLevel');
+
+      const utility = document.createElement('div');
+      utility.className = 'modalUtilityBar';
+      utility.innerHTML = '<button type="button" data-modal-panel="add">Nuevo referido</button><button type="button" data-modal-panel="copy">Copiar lista</button><button type="button" data-modal-panel="profile">Editar referente</button>';
+      modal.querySelector('.sheetHead')?.appendChild(utility);
+
+      const copy = left.querySelector('.copyBox');
+      const addTitle = left.querySelector('h3[id^="add_"]');
+      const addForm = addTitle?.nextElementSibling?.matches('form') ? addTitle.nextElementSibling : null;
+      if (copy) copy.classList.add('modalCollapsible', 'modalPanelCopy');
+      if (addTitle) addTitle.classList.add('modalCollapsible', 'modalPanelAdd');
+      if (addForm) addForm.classList.add('modalCollapsible', 'modalPanelAdd');
+
+      const profileTitle = right.querySelector('h3[id^="not_"]');
+      if (profileTitle) {
+        profileTitle.classList.add('modalCollapsible', 'modalPanelProfile');
+        let node = profileTitle.nextElementSibling;
+        while (node) {
+          node.classList.add('modalCollapsible', 'modalPanelProfile');
+          node = node.nextElementSibling;
+        }
+      }
+
+      utility.addEventListener('click', event => {
+        const button = event.target.closest('[data-modal-panel]');
+        if (!button) return;
+        const key = button.dataset.modalPanel;
+        const className = key === 'add' ? 'modalPanelAdd' : key === 'copy' ? 'modalPanelCopy' : 'modalPanelProfile';
+        const opening = !modal.classList.contains('showPanel' + key);
+        modal.classList.remove('showPaneladd', 'showPanelcopy', 'showPanelprofile');
+        utility.querySelectorAll('button').forEach(item => item.classList.remove('active'));
+        modal.querySelectorAll('.modalCollapsible').forEach(item => item.hidden = true);
+        if (opening) {
+          modal.classList.add('showPanel' + key);
+          utility.querySelector(`[data-modal-panel="${key}"]`)?.classList.add('active');
+          modal.querySelectorAll('.' + className).forEach(item => item.hidden = false);
+        }
+      });
+      modal.querySelectorAll('.modalCollapsible').forEach(item => item.hidden = true);
+
+      const list = right.querySelector('.refList');
+      if (list) {
+        const search = document.createElement('div');
+        search.className = 'modalRefSearch';
+        search.innerHTML = '<input type="search" placeholder="Buscar en esta ficha…" aria-label="Buscar referido en esta ficha"><span></span>';
+        list.parentNode.insertBefore(search, list);
+        const cards = [...list.querySelectorAll('.ref')];
+        search.querySelector('span').textContent = cards.length + ' usuarios';
+        search.querySelector('input').addEventListener('input', event => {
+          const q = event.target.value.trim().toLowerCase();
+          let count = 0;
+          cards.forEach(card => {
+            const show = !q || card.textContent.toLowerCase().includes(q);
+            card.hidden = !show;
+            if (show) count++;
+          });
+          search.querySelector('span').textContent = count + ' usuarios';
+        });
+
+        cards.forEach(card => {
+          const top = card.querySelector('.refTop');
+          if (!top) return;
+          const details = document.createElement('div');
+          details.className = 'refDetails';
+          [...card.children].filter(child => child !== top).forEach(child => details.appendChild(child));
+          details.hidden = true;
+          card.appendChild(details);
+          const manage = document.createElement('button');
+          manage.type = 'button';
+          manage.className = 'refManage';
+          manage.textContent = 'Gestionar';
+          top.appendChild(manage);
+          manage.addEventListener('click', () => {
+            const open = details.hidden;
+            list.querySelectorAll('.refDetails').forEach(item => item.hidden = true);
+            list.querySelectorAll('.refManage').forEach(item => { item.textContent = 'Gestionar'; item.classList.remove('active'); });
+            details.hidden = !open;
+            manage.textContent = open ? 'Cerrar' : 'Gestionar';
+            manage.classList.toggle('active', open);
+          });
+        });
+      }
+    });
+  }
+
   function bridgeLegacySearch() {
     if (typeof window.mdProOpenTarget !== 'function') return;
     const original = window.mdProOpenTarget;
@@ -375,6 +475,7 @@
     bindCommandCenter();
     improveContent();
     buildMinimalDashboard();
+    simplifyModals();
     buildCollectionTools();
     bridgeLegacySearch();
     const params = new URLSearchParams(location.search);
