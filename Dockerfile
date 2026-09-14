@@ -11,4 +11,4 @@ COPY . .
 
 EXPOSE 10000
 
-CMD ["php", "-d", "expose_php=0", "-d", "display_errors=0", "-S", "0.0.0.0:10000", "panel.php"]
+CMD ["php", "-d", "expose_php=0", "-d", "display_errors=0", "-S", "0.0.0.0:10000", "router.php"]
