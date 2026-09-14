@@ -415,7 +415,7 @@
       if (list) {
         const search = document.createElement('div');
         search.className = 'modalRefSearch';
-        search.innerHTML = '<input type="search" placeholder="Buscar en esta ficha…" aria-label="Buscar referido en esta ficha"><span></span>';
+        search.innerHTML = '<input type="search" placeholder="Buscar usuario…" aria-label="Buscar referido en esta ficha"><select aria-label="Ordenar usuarios"><option value="expiry">Próximos a caducar</option><option value="name">Nombre A–Z</option><option value="status">Estado</option></select><span></span>';
         list.parentNode.insertBefore(search, list);
         const cards = [...list.querySelectorAll('.ref')];
         search.querySelector('span').textContent = cards.length + ' usuarios';
@@ -430,9 +430,76 @@
           search.querySelector('span').textContent = count + ' usuarios';
         });
 
+        const tableHead = document.createElement('div');
+        tableHead.className = 'refTableHead';
+        tableHead.innerHTML = '<span>Usuario</span><span>Alta</span><span>Caducidad</span><span>Estado</span><span></span>';
+        list.before(tableHead);
+
+        const drawerBackdrop = document.createElement('button');
+        drawerBackdrop.type = 'button';
+        drawerBackdrop.className = 'recordDrawerBackdrop';
+        drawerBackdrop.setAttribute('aria-label', 'Cerrar panel');
+        const drawer = document.createElement('aside');
+        drawer.className = 'recordDrawer';
+        drawer.setAttribute('aria-hidden', 'true');
+        drawer.innerHTML = '<header><div><small>GESTIÓN DE USUARIO</small><h3></h3><p></p></div><button type="button" class="recordDrawerClose" aria-label="Cerrar">×</button></header><div class="recordDrawerBody"></div>';
+        sheet.append(drawerBackdrop, drawer);
+        const drawerBody = drawer.querySelector('.recordDrawerBody');
+        let activeCard = null;
+
+        const closeDrawer = () => {
+          if (activeCard) {
+            const details = drawerBody.querySelector('.refDetails');
+            if (details) {
+              details.hidden = true;
+              activeCard.appendChild(details);
+            }
+            activeCard.querySelector('.refManage')?.classList.remove('active');
+            activeCard = null;
+          }
+          drawer.classList.remove('open');
+          drawerBackdrop.classList.remove('open');
+          drawer.setAttribute('aria-hidden', 'true');
+        };
+        drawerBackdrop.addEventListener('click', closeDrawer);
+        drawer.querySelector('.recordDrawerClose').addEventListener('click', closeDrawer);
+        modal.addEventListener('click', event => {
+          if (event.target === modal) closeDrawer();
+        });
+
         cards.forEach(card => {
           const top = card.querySelector('.refTop');
           if (!top) return;
+          const identity = top.firstElementChild;
+          const name = identity?.querySelector('b')?.textContent.trim() || 'Usuario';
+          const meta = identity?.querySelector('.muted');
+          const metaText = meta?.textContent || '';
+          const dates = metaText.match(/Alta:\s*(.*?)\s*·\s*Caduca:\s*(.*)/i);
+          const start = dates?.[1]?.trim() || '—';
+          const expiry = dates?.[2]?.trim() || 'Sin fecha';
+          card.dataset.name = name.toLowerCase();
+          card.dataset.expiry = /^\d{4}-\d{2}-\d{2}$/.test(expiry) ? expiry : '9999-12-31';
+          card.dataset.status = top.querySelector('.status')?.textContent.trim().toLowerCase() || '';
+          identity.classList.add('refIdentity');
+          if (meta) meta.hidden = true;
+          const startCell = document.createElement('span');
+          startCell.className = 'refDate refStart';
+          startCell.textContent = start;
+          const expiryCell = document.createElement('span');
+          expiryCell.className = 'refDate refExpiry';
+          expiryCell.textContent = expiry;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const expiryDate = /^\d{4}-\d{2}-\d{2}$/.test(expiry) ? new Date(expiry + 'T00:00:00') : null;
+          if (expiryDate) {
+            const days = Math.round((expiryDate - today) / 86400000);
+            card.dataset.days = String(days);
+            if (days < 0) expiryCell.classList.add('expired');
+            else if (days <= 3) expiryCell.classList.add('urgent');
+            else if (days <= 7) expiryCell.classList.add('soon');
+          }
+          const status = top.querySelector('.status');
+          identity.after(startCell, expiryCell);
           const details = document.createElement('div');
           details.className = 'refDetails';
           [...card.children].filter(child => child !== top).forEach(child => details.appendChild(child));
@@ -441,17 +508,44 @@
           const manage = document.createElement('button');
           manage.type = 'button';
           manage.className = 'refManage';
-          manage.textContent = 'Gestionar';
+          manage.textContent = '•••';
+          manage.setAttribute('aria-label', 'Gestionar ' + name);
           top.appendChild(manage);
           manage.addEventListener('click', () => {
-            const open = details.hidden;
-            list.querySelectorAll('.refDetails').forEach(item => item.hidden = true);
-            list.querySelectorAll('.refManage').forEach(item => { item.textContent = 'Gestionar'; item.classList.remove('active'); });
-            details.hidden = !open;
-            manage.textContent = open ? 'Cerrar' : 'Gestionar';
-            manage.classList.toggle('active', open);
+            if (activeCard === card) {
+              closeDrawer();
+              return;
+            }
+            closeDrawer();
+            activeCard = card;
+            details.hidden = false;
+            drawerBody.appendChild(details);
+            drawer.querySelector('h3').textContent = name;
+            drawer.querySelector('p').textContent = 'Alta ' + start + ' · Caduca ' + expiry;
+            drawer.classList.add('open');
+            drawerBackdrop.classList.add('open');
+            drawer.setAttribute('aria-hidden', 'false');
+            manage.classList.add('active');
+            const editButton = details.querySelector('.refActions > button');
+            const editBox = details.querySelector('.editBox');
+            if (editButton && editBox && !editButton.dataset.drawerBound) {
+              editButton.dataset.drawerBound = '1';
+              editButton.removeAttribute('onclick');
+              editButton.addEventListener('click', () => editBox.classList.toggle('drawerEditOpen'));
+            }
           });
         });
+
+        const sortCards = mode => {
+          const sorted = [...cards].sort((a, b) => {
+            if (mode === 'name') return a.dataset.name.localeCompare(b.dataset.name, 'es');
+            if (mode === 'status') return a.dataset.status.localeCompare(b.dataset.status, 'es') || a.dataset.name.localeCompare(b.dataset.name, 'es');
+            return a.dataset.expiry.localeCompare(b.dataset.expiry) || a.dataset.name.localeCompare(b.dataset.name, 'es');
+          });
+          sorted.forEach(card => list.appendChild(card));
+        };
+        search.querySelector('select').addEventListener('change', event => sortCards(event.target.value));
+        sortCards('expiry');
       }
     });
   }
