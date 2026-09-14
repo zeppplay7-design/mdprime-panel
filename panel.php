@@ -1,19 +1,41 @@
 <?php
-/* MDPRIME PANEL V18 - BUSCADOR GLOBAL ABRIR FICHA REAL */
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+/* MDPRIME PANEL */
+$appDebug = filter_var(getenv('APP_DEBUG') ?: 'false', FILTER_VALIDATE_BOOLEAN);
+ini_set('display_errors', $appDebug ? '1' : '0');
+ini_set('display_startup_errors', $appDebug ? '1' : '0');
 error_reporting(E_ALL);
 
 // Zona horaria fija para que las caducidades se calculen con fecha real de España
 date_default_timezone_set('Europe/Madrid');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 
 /* ===== PROTECCIÓN DE ACCESO MDPRIME - SOLO CONTRASEÑA ===== */
+session_set_cookie_params([
+  'httponly' => true,
+  'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'),
+  'samesite' => 'Strict',
+  'path' => '/',
+]);
 session_start();
-$panel_password = 'Aa251171'; // Cambia aquí la contraseña si quieres otra
+
+$panel_password = (string)getenv('PANEL_PASSWORD');
+if ($panel_password === '') {
+  http_response_code(503);
+  exit('Panel no configurado. Define PANEL_PASSWORD en las variables privadas de Render.');
+}
+
+if (empty($_SESSION['csrf_token'])) {
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrfToken = $_SESSION['csrf_token'];
 
 if (isset($_GET['logout'])) {
+  $_SESSION = [];
   session_destroy();
   header('Location: '.$_SERVER['PHP_SELF']);
   exit;
@@ -21,18 +43,38 @@ if (isset($_GET['logout'])) {
 
 $login_error = '';
 if (isset($_POST['panel_login_password'])) {
-  if (hash_equals($panel_password, (string)$_POST['panel_login_password'])) {
+  if (!hash_equals((string)($_SESSION['csrf_token'] ?? ''), (string)($_POST['csrf_token'] ?? ''))) {
+    http_response_code(419);
+    exit('La sesión ha caducado. Recarga la página y vuelve a intentarlo.');
+  }
+
+  $attempts = (int)($_SESSION['login_attempts'] ?? 0);
+  $lockedUntil = (int)($_SESSION['login_locked_until'] ?? 0);
+  if ($lockedUntil > time()) {
+    $login_error = 'Demasiados intentos. Espera un minuto antes de volver a probar.';
+  } elseif (hash_equals($panel_password, (string)$_POST['panel_login_password'])) {
+    unset($_SESSION['login_attempts'], $_SESSION['login_locked_until']);
+    session_regenerate_id(true);
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     $_SESSION['mdprime_panel_auth'] = true;
     header('Location: '.$_SERVER['PHP_SELF']);
     exit;
   } else {
-    $login_error = 'Contraseña incorrecta.';
+    $attempts++;
+    $_SESSION['login_attempts'] = $attempts;
+    if ($attempts >= 5) {
+      $_SESSION['login_locked_until'] = time() + 60;
+      $_SESSION['login_attempts'] = 0;
+      $login_error = 'Demasiados intentos. Espera un minuto antes de volver a probar.';
+    } else {
+      $login_error = 'Contraseña incorrecta.';
+    }
   }
 }
 
 if (empty($_SESSION['mdprime_panel_auth'])) {
   $err = $login_error ? '<div class="error">'.htmlspecialchars($login_error, ENT_QUOTES, 'UTF-8').'</div>' : '';
-  echo '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Acceso MDPRIME</title><style>
+  echo '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark light"><title>Acceso · MDPRIME</title><style>
   *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 20% 0%,rgba(245,197,66,.20),transparent 28%),linear-gradient(135deg,#030405,#071018 55%,#030405);font-family:Inter,system-ui,Segoe UI,Arial;color:#fff;padding:18px}.login{width:min(430px,100%);border:1px solid rgba(245,197,66,.35);border-radius:26px;background:linear-gradient(180deg,rgba(17,24,32,.94),rgba(4,8,12,.96));box-shadow:0 24px 70px rgba(0,0,0,.65);padding:28px;text-align:center}.brand{font-size:42px;font-weight:1000;color:#f5c542;letter-spacing:-1px;margin-bottom:8px}.sub{color:#aeb7c4;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;font-size:12px;margin-bottom:24px}.lock{font-size:54px;margin-bottom:10px}input{width:100%;background:#050914;color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:16px;font-size:18px;outline:none;margin-bottom:14px}input:focus{border-color:#f5c542;box-shadow:0 0 0 4px rgba(245,197,66,.12)}button{width:100%;border:0;border-radius:16px;padding:16px;background:linear-gradient(135deg,#f5c542,#b78317);color:#111;font-weight:1000;font-size:16px;cursor:pointer}.error{margin-bottom:14px;padding:12px;border-radius:14px;background:rgba(255,59,48,.14);border:1px solid rgba(255,59,48,.35);color:#fecaca;font-weight:900}.hint{margin-top:15px;color:#94a3b8;font-size:12px}</style>
 <style id="mdBuscadorClientesVisualCss">
 .clientesSearchPanel{
@@ -59,7 +101,7 @@ if (empty($_SESSION['mdprime_panel_auth'])) {
     font-size:22px!important;
   }
 }
-</style>
+</style><link rel="stylesheet" href="assets/apple.css">
 
 
 
@@ -136,16 +178,21 @@ if (empty($_SESSION['mdprime_panel_auth'])) {
   }
 }
 </style>
-</head><body><form class="login" method="post"><div class="lock">🔒</div><div class="brand">MDPRIME</div><div class="sub">Panel privado</div>'.$err.'<input type="password" name="panel_login_password" placeholder="Introduce la contraseña" required autofocus><button>Entrar al panel</button><div class="hint">Acceso protegido por contraseña</div></form></body></html>';
+</head><body class="loginPage"><form class="login" method="post"><input type="hidden" name="csrf_token" value="'.htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8').'"><div class="lock" aria-hidden="true">🔒</div><div class="brand">MDPRIME</div><div class="sub">Centro de gestión</div>'.$err.'<label for="panel-password">Contraseña</label><input id="panel-password" type="password" name="panel_login_password" placeholder="Introduce la contraseña" autocomplete="current-password" required autofocus><button>Entrar</button><div class="hint">Acceso privado y seguro</div></form></body></html>';
   exit;
 }
 /* ===== FIN PROTECCIÓN DE ACCESO ===== */
 
-$db_host = "reseau.proxy.rlwy.net";
-$db_port = 39553;
-$db_name = "railway";
-$db_user = "root";
-$db_pass = "ZRNWfdsxefUJrBMSJMchlLxzMHrAZjug";
+$db_host = (string)getenv('DB_HOST');
+$db_port = (int)(getenv('DB_PORT') ?: 3306);
+$db_name = (string)getenv('DB_NAME');
+$db_user = (string)getenv('DB_USER');
+$db_pass = (string)(getenv('DB_PASS') ?: getenv('DB_PASSWORD'));
+
+if ($db_host === '' || $db_name === '' || $db_user === '' || $db_pass === '') {
+  http_response_code(503);
+  exit('Base de datos no configurada. Revisa las variables privadas de Render.');
+}
 
 function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 function clean($v){ return trim(strip_tags((string)$v)); }
@@ -176,7 +223,11 @@ function redirectBack($msg){
 
 try{
   $pdo = new PDO("mysql:host=$db_host;port=$db_port;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_TIMEOUT=>10]);
-}catch(Throwable $e){ die("<body style='background:#050505;color:white;font-family:Arial;padding:20px'><div style='border:1px solid #ef4444;border-radius:20px;padding:20px;background:#111'><h2>Error MySQL</h2><p>".h($e->getMessage())."</p></div></body>"); }
+}catch(Throwable $e){
+  error_log('MDPRIME DB connection error: '.$e->getMessage());
+  http_response_code(503);
+  die("<body style='background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;padding:24px'><div style='max-width:620px;margin:10vh auto;border-radius:24px;padding:28px;background:white;box-shadow:0 20px 60px rgba(0,0,0,.12)'><h2>Servicio temporalmente no disponible</h2><p>No se ha podido conectar con la base de datos. Inténtalo de nuevo en unos minutos.</p></div></body>");
+}
 function hasCol($pdo,$table,$col){ try{$s=$pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");$s->execute([$col]);return (bool)$s->fetch();}catch(Throwable $e){return false;} }
 $pdo->exec("CREATE TABLE IF NOT EXISTS clientes(id INT AUTO_INCREMENT PRIMARY KEY,nombre VARCHAR(150) NOT NULL,contacto VARCHAR(150) DEFAULT '',telefono VARCHAR(150) DEFAULT '',telegram VARCHAR(100) DEFAULT '',nota TEXT,fecha_alta TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $pdo->exec("CREATE TABLE IF NOT EXISTS referidos(id INT AUTO_INCREMENT PRIMARY KEY,cliente_id INT NOT NULL,nombre VARCHAR(150) NOT NULL,fecha_alta DATE NULL,fecha_caducidad DATE NULL,estado VARCHAR(20) DEFAULT 'Activo',nota TEXT,creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -202,7 +253,7 @@ $msg='';
 /* ===== DEBUG REFERIDO MDPRIME =====
    Uso: panel.php?debug_ref=usuario
    Muestra si un referido está realmente guardado en Railway. */
-if (isset($_GET['debug_ref']) && $_GET['debug_ref'] !== '') {
+if ($appDebug && isset($_GET['debug_ref']) && $_GET['debug_ref'] !== '') {
   header('Content-Type: text/plain; charset=utf-8');
 
   $q = clean($_GET['debug_ref']);
@@ -322,6 +373,10 @@ function sigmaRowsAndLastPage($json){
 }
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
+  if (!hash_equals((string)($_SESSION['csrf_token'] ?? ''), (string)($_POST['csrf_token'] ?? ''))) {
+    http_response_code(419);
+    exit('La sesión ha caducado. Recarga la página y vuelve a intentarlo.');
+  }
   $a=$_POST['action']??'';
   try{
     if($a==='add_cliente'){$nombre=clean($_POST['nombre']??'');$contacto=clean($_POST['contacto']??'');$telegram=clean($_POST['telegram']??'');$telegram=ltrim($telegram,'@');$nota=clean($_POST['nota']??'');if($nombre!==''){$pdo->prepare("INSERT INTO clientes(nombre,contacto,telefono,telegram,nota) VALUES(?,?,?,?,?)")->execute([$nombre,$contacto,$contacto,$telegram,$nota]);$msg='Cliente añadido.';}}
@@ -675,7 +730,7 @@ $referidosInactivosPagina = array_slice($referidosInactivos, ($paginaInactivos -
 function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_SERVER['PHP_SELF'].'?'.http_build_query($q); }
 
 ?>
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>MDPRIME Referidos VIP V6</title>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="color-scheme" content="dark light"><meta name="theme-color" content="#f5f5f7"><title>MDPRIME · Centro de gestión</title>
 <style>
 :root{--bg:#030405;--panel:#0b1014;--panel2:#111820;--gold:#f5c542;--gold2:#b78317;--line:rgba(245,197,66,.28);--txt:#f8fafc;--muted:#aeb7c4;--green:#35d04f;--red:#ff3b30;--blue:#1fb6ff;--cyan:#32d3c6;--shadow:0 24px 70px rgba(0,0,0,.55);--radius:22px}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;max-width:100%;overflow-x:hidden}body{font-family:Inter,system-ui,Segoe UI,Arial;background:var(--bg);color:var(--txt);min-height:100vh}body:before{content:"";position:fixed;inset:0;z-index:-3;background:radial-gradient(circle at 20% 0%,rgba(245,197,66,.17),transparent 26%),radial-gradient(circle at 83% 5%,rgba(31,182,255,.12),transparent 24%),linear-gradient(135deg,#010203,#071018 45%,#030405)}body:after{content:"";position:fixed;inset:0;z-index:-2;background-image:linear-gradient(rgba(245,197,66,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(245,197,66,.035) 1px,transparent 1px);background-size:48px 48px;opacity:.34}.app{display:grid;grid-template-columns:245px 1fr;min-height:100vh}.sidebar{position:sticky;top:0;height:100vh;border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(5,9,12,.96),rgba(1,2,3,.97));padding:22px 18px;box-shadow:var(--shadow)}.logo{font-size:40px;font-weight:1000;letter-spacing:-2px;color:var(--gold);line-height:.85;margin-bottom:24px}.logo small{display:block;color:white;font-size:13px;letter-spacing:5px;margin-top:9px}.nav a,.quick a,.quick button{width:100%;display:flex;align-items:center;gap:12px;border:0;text-decoration:none;color:white;background:transparent;padding:13px 14px;border-radius:14px;font-weight:800;font-size:15px;cursor:pointer}.nav a.active,.nav a:hover,.quick a:hover,.quick button:hover{background:linear-gradient(90deg,rgba(245,197,66,.9),rgba(183,131,23,.75));color:#111}.quick{margin-top:28px;border:1px solid var(--line);border-radius:18px;padding:12px;background:rgba(255,255,255,.035)}.quick h4{margin:0 0 8px;color:var(--gold);font-size:14px;text-transform:uppercase}.main{padding:20px 24px 90px}.header{text-align:center;position:relative;margin-bottom:17px}.header h1{margin:0;font-size:clamp(28px,4vw,52px);font-weight:1000;letter-spacing:-1.3px}.header h1 span{color:var(--gold)}.header p{margin:7px 0 0;color:#d5d7dc;letter-spacing:2px;font-weight:700;text-transform:uppercase}.admin{position:absolute;right:0;top:0;border:1px solid var(--line);border-radius:999px;padding:10px 16px;background:rgba(255,255,255,.04);font-weight:900}.panel{border:1px solid var(--line);background:linear-gradient(180deg,rgba(17,24,32,.86),rgba(4,8,12,.91));border-radius:var(--radius);box-shadow:var(--shadow)}.dashboard{display:grid;grid-template-columns:1fr 310px;gap:16px}.center{padding:16px}.right{display:grid;gap:16px}.alerts{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}.alert{border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:12px;background:linear-gradient(135deg,rgba(245,197,66,.12),rgba(255,255,255,.03));font-weight:900;color:#fff}.alert b{display:block;font-size:20px;color:var(--gold)}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{padding:18px;border:1px solid rgba(255,255,255,.12);border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.02));display:flex;align-items:center;gap:14px;min-height:105px}.ico{font-size:42px;filter:drop-shadow(0 0 10px rgba(255,255,255,.18))}.stat b{font-size:34px;display:block}.stat span{color:var(--muted);font-weight:800;font-size:12px;text-transform:uppercase}.mid{display:grid;grid-template-columns:1fr 1.15fr;gap:14px;margin-top:14px}.level{padding:22px;border-color:rgba(245,197,66,.55)}.level h3,.box h3{margin:0 0 14px;color:white;font-size:17px;text-transform:uppercase}.levelInner{display:flex;align-items:center;gap:22px}.medal{font-size:72px}.levelName{font-size:43px;font-weight:1000;color:#e5e7eb}.progress{height:20px;background:#232a31;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.12);margin-top:17px}.bar{height:100%;width:var(--w);background:linear-gradient(90deg,var(--gold),#fff29b)}.donutBox{padding:22px}.donutWrap{display:flex;align-items:center;justify-content:center;gap:28px}.donut{width:185px;height:185px;border-radius:50%;background:conic-gradient(var(--green) 0 calc(var(--p)*1%), var(--red) calc(var(--p)*1%) 100%);display:grid;place-items:center}.donutIn{width:105px;height:105px;border-radius:50%;background:#081018;display:grid;place-items:center;text-align:center;border:1px solid rgba(255,255,255,.15)}.donutIn b{font-size:29px}.legend div{margin:10px 0}.sq{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:8px;vertical-align:-2px}.g{background:var(--green)}.r{background:var(--red)}.bottomGrid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:14px}.box{padding:18px}.miniTable{width:100%;border-collapse:collapse}.miniTable th,.miniTable td{padding:10px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}.miniTable th{font-size:12px;color:#cbd5e1;text-transform:uppercase}.activo{color:#46ff60}.inactivo{color:#ff453a}.gold{color:var(--gold)}.infoCard{padding:20px}.infoCard h3{margin:0 0 12px;text-align:center;text-transform:uppercase}.infoCard ul{margin:0;padding-left:0;list-style:none}.infoCard li{margin:11px 0;color:#e4e8ee}.ok{color:#65e572}.mysql{font-size:36px;color:#70e45c;font-weight:1000}.formAdd{margin-top:16px;padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr 1.4fr auto;gap:12px;align-items:end}.levels{margin-top:16px;padding:16px}.levelGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.levelCard{position:relative;overflow:hidden;padding:18px;border-radius:20px;border:1px solid rgba(255,255,255,.13);min-height:170px;background:#070b12}.levelCard:before{content:"";position:absolute;inset:-70px -40px auto auto;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 65%)}.levelCard:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 20%,rgba(255,255,255,.12) 45%,transparent 65%);transform:translateX(-120%);animation:shine 5s infinite}@keyframes shine{0%,55%{transform:translateX(-130%)}75%,100%{transform:translateX(130%)}}.levelIcon{font-size:44px}.levelCard h3{margin:8px 0 4px;font-size:22px}.levelCard p{margin:0;color:#d7dce5}.levelPrices{display:flex;gap:6px;margin-top:12px}.levelPrices span{flex:1;text-align:center;border-radius:12px;padding:8px 4px;background:rgba(0,0,0,.25);font-weight:900}.lv-cobre{background:linear-gradient(135deg,rgba(184,96,34,.45),rgba(70,36,16,.55))}.lv-plata{background:linear-gradient(135deg,rgba(226,232,240,.38),rgba(76,88,105,.48))}.lv-oro{background:linear-gradient(135deg,rgba(245,197,66,.45),rgba(92,62,5,.55))}.lv-platinum{background:linear-gradient(135deg,rgba(45,212,191,.35),rgba(31,182,255,.22),rgba(139,92,246,.22))}input,select,textarea{width:100%;background:#050914;color:white;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:13px;outline:none;font:inherit}input:focus,textarea:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 4px rgba(245,197,66,.1)}label{display:block;color:#d8dee8;font-weight:900;font-size:12px;margin-bottom:7px}.btn{border:0;border-radius:14px;padding:13px 16px;min-height:47px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#111;font-weight:1000;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}.btn.dark{background:#111823;color:white;border:1px solid rgba(255,255,255,.14)}.btn.green{background:linear-gradient(135deg,#30df73,#16bfb3);color:white}.btn.red{background:linear-gradient(135deg,#ff5c5c,#c41235);color:white}.btn.small{min-height:38px;padding:9px 11px;font-size:13px}.notice{margin:12px 0;padding:13px 16px;border:1px solid rgba(53,208,79,.45);background:rgba(53,208,79,.12);border-radius:16px;color:#bbf7d0;font-weight:900}.clientTools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:20px 0 12px}.searchBox{max-width:420px}.clients{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.client{padding:16px;position:relative;overflow:hidden}.client:before{content:"";position:absolute;right:-40px;top:-40px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(245,197,66,.18),transparent 68%)}.client h3{margin:0 0 6px;font-size:22px}.badge{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:7px 10px;background:rgba(245,197,66,.08);font-weight:1000}.prices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.price{padding:9px;border-radius:12px;background:#050914;border:1px solid rgba(255,255,255,.08);text-align:center}.price b{display:block;color:var(--gold);font-size:19px}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.metric{padding:10px;background:#050914;border:1px solid rgba(255,255,255,.08);border-radius:12px;text-align:center}.metric b{display:block;font-size:21px}.note{font-size:13px;color:#dbeafe;background:rgba(255,255,255,.045);border-radius:12px;padding:10px;min-height:42px}.miniProgress{margin-top:10px}.miniProgress small{display:flex;justify-content:space-between;color:#cbd5e1;margin-bottom:5px}.miniBar{height:10px;border-radius:999px;background:#222b34;overflow:hidden}.miniBar span{display:block;height:100%;width:var(--w);background:linear-gradient(90deg,var(--gold),#fff29b)}.expiryList{display:grid;gap:8px}.expiry{display:flex;justify-content:space-between;gap:10px;align-items:center;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px}.expiry b{color:var(--gold)}.rankCards{display:grid;gap:9px}.rankCard{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:11px}.rankCard strong{font-size:17px}.modal{display:none;position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);padding:25px;overflow:auto}.modal.open{display:block}.sheet{max-width:1080px;margin:auto}.sheetHead{padding:17px;display:flex;justify-content:space-between;gap:12px;align-items:center;position:sticky;top:0;z-index:2}.sheetHead h2{margin:0;font-size:32px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tabs a{padding:9px 12px;border-radius:999px;background:#050914;border:1px solid rgba(255,255,255,.12);text-decoration:none;font-weight:900}.modalBody{display:grid;grid-template-columns:360px 1fr;gap:14px;margin-top:14px}.refList{display:grid;gap:10px}.ref{padding:13px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#080e16}.refTop{display:flex;justify-content:space-between;gap:8px}.status{padding:6px 9px;border-radius:999px;font-weight:1000;font-size:12px}.status.act{background:rgba(53,208,79,.15);color:#87ff97}.status.in{background:rgba(255,59,48,.15);color:#ff9b94}.refActions{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}.editBox{display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)}.ref.edit .editBox{display:block}.mobileNav{display:none}@media(max-width:1200px){.dashboard{grid-template-columns:1fr}.right{grid-template-columns:repeat(3,1fr)}.clients{grid-template-columns:repeat(2,1fr)}}@media(max-width:980px){.app{grid-template-columns:1fr}.sidebar{display:none}.header{text-align:left}.admin{position:static;display:inline-flex;margin-bottom:10px}.alerts,.stats,.mid,.bottomGrid,.formAdd,.levelGrid,.right,.clients,.modalBody{grid-template-columns:1fr}.donutWrap{flex-direction:column}.clientTools{display:block}.searchBox{max-width:100%;margin-top:10px}}@media(max-width:760px){.main{padding:12px 10px 90px}.header h1{font-size:27px}.header p{font-size:11px;letter-spacing:1px}.panel{border-radius:18px}.modal{padding:0}.sheet{min-height:100dvh;border-radius:0}.sheetHead{border-radius:0}.refActions{grid-template-columns:1fr}.mobileNav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;bottom:0;left:0;right:0;background:rgba(3,4,5,.95);backdrop-filter:blur(16px);border-top:1px solid var(--line);z-index:20}.mobileNav a{padding:10px 5px;text-align:center;text-decoration:none;color:white;font-size:12px;font-weight:900}.stat{min-height:88px}.ico{font-size:34px}}
 
@@ -1368,6 +1423,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
   .mdGlobalProBadge{margin-top:8px}
 }
 </style>
+<link rel="stylesheet" href="assets/apple.css">
 <style id="mdPerfilReferenteSoloCss">
 .clientMainActions{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
 .clientMainActions form{margin:0}
@@ -1514,6 +1570,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
   }
 }
 </style>
+<link rel="stylesheet" href="assets/apple.css?v=2">
 </head><body>
 <div class="app"><aside class="sidebar"><div class="logo">MD<small>PRIME</small></div><nav class="nav"><a class="active" href="#dashboard">🏠 Dashboard</a><a href="#clientes">👥 Clientes</a><a href="#referidos">👥 Referidos</a><a href="#duplicados">🔁 Repetidos</a><a href="#inactivos">❌ Inactivos</a><a href="#addCliente">➕ Añadir Cliente</a><a href="#ranking">🏆 Ranking</a><a href="#niveles">🛡️ Niveles</a><a href="#caducidades">📅 Caducidades</a></nav><div class="quick"><h4>Acceso rápido</h4><a href="#addCliente">👤 Añadir Cliente</a><a href="#ranking">🏆 Ver Ranking</a><form method="post"><input type="hidden" name="action" value="export_json"><button>💾 Exportar Backup</button></form></div></aside><main class="main"><header class="header"><div class="admin">🔒 Privado · <a href="?logout=1" style="color:#f5c542;text-decoration:none">Salir</a></div><h1>PANEL DE REFERIDOS <span>MDPRIME</span></h1><p>Sistema profesional de gestión de clientes y referidos</p></header><?php if($msg): ?><div class="notice"><?=h($msg)?></div><?php endif; ?>
 
@@ -1837,7 +1894,7 @@ $copyIna .= "━━━━━━━━━━━━━━━━━━\nTOTAL INACT
   <a class="btn small <?= $paginaClientes >= $totalPagClientes ? 'disabled' : '' ?>" href="<?=h(pageUrl('pagina_clientes', $paginaClientes+1))?>#clientes">Siguiente ➜</a>
 </div>
 <?php endif; ?>
-</main></div><nav class="mobileNav"><a href="#dashboard">Inicio</a><a href="#clientes">Clientes</a><a href="#addCliente">Añadir</a><a href="#duplicados">Repetidos</a></nav><script>let sy=0;function openM(id,target){sy=scrollY;document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';setTimeout(()=>{if(target==='add'){let e=document.getElementById('add_'+id);if(e)e.scrollIntoView({behavior:'smooth',block:'start'});}},120)}function closeM(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';scrollTo(0,sy)}document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'));document.body.style.overflow='';}});function filtrarClientes(){let q=(document.getElementById('buscarCliente').value||'').toLowerCase();document.querySelectorAll('.client[data-search]').forEach(c=>{c.style.display=c.dataset.search.includes(q)?'block':'none';});}</script>
+</main></div><nav class="mobileNav" aria-label="Navegación móvil"><a href="#dashboard">Inicio</a><a href="#clientes">Clientes</a><a href="#addCliente">Añadir</a><a href="#duplicados">Repetidos</a></nav><script>const MD_CSRF=<?=json_encode($csrfToken, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?>;document.querySelectorAll('form[method="post"],form[method="POST"]').forEach(form=>{if(!form.querySelector('input[name="csrf_token"]')){const input=document.createElement('input');input.type='hidden';input.name='csrf_token';input.value=MD_CSRF;form.prepend(input);}});let sy=0;function openM(id,target){sy=scrollY;const modal=document.getElementById(id);if(!modal)return;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>{if(target==='add'){let e=document.getElementById('add_'+id);if(e)e.scrollIntoView({behavior:'smooth',block:'start'});}},120)}function closeM(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.remove('open');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';scrollTo(0,sy)}document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.modal.open').forEach(m=>{m.classList.remove('open');m.setAttribute('aria-hidden','true')});document.body.style.overflow='';}});function filtrarClientes(){let q=(document.getElementById('buscarCliente').value||'').toLowerCase();document.querySelectorAll('.client[data-search]').forEach(c=>{c.style.display=c.dataset.search.includes(q)?'block':'none';});}</script>
 <style>
 /* ===== MDPRIME FIX FINAL: mantener modal abierto + scroll móvil ===== */
 @media(max-width:760px){
