@@ -407,6 +407,9 @@
 
   function simplifyModals() {
     document.querySelectorAll('.modal').forEach(modal => {
+      // Los modales nacen dentro de la cuadrícula de referentes. Moverlos al body
+      // evita que hereden su ancho/alto y permite usar todo el viewport.
+      if (modal.parentElement !== document.body) document.body.appendChild(modal);
       const sheet = modal.querySelector('.sheet');
       const body = modal.querySelector('.modalBody');
       if (!sheet || !body || sheet.dataset.minimalReady) return;

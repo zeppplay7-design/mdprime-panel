@@ -101,7 +101,7 @@ if (empty($_SESSION['mdprime_panel_auth'])) {
     font-size:22px!important;
   }
 }
-</style><link rel="stylesheet" href="assets/apple.css?v=5">
+</style><link rel="stylesheet" href="assets/apple.css?v=6">
 
 
 
@@ -1423,7 +1423,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
   .mdGlobalProBadge{margin-top:8px}
 }
 </style>
-<link rel="stylesheet" href="assets/apple.css?v=5">
+<link rel="stylesheet" href="assets/apple.css?v=6">
 <style id="mdPerfilReferenteSoloCss">
 .clientMainActions{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
 .clientMainActions form{margin:0}
@@ -1570,7 +1570,7 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
   }
 }
 </style>
-<link rel="stylesheet" href="assets/apple.css?v=5">
+<link rel="stylesheet" href="assets/apple.css?v=6">
 </head><body>
 <div class="app"><aside class="sidebar"><div class="logo">MD<small>PRIME</small></div><nav class="nav"><a class="active" href="#dashboard">🏠 Dashboard</a><a href="#clientes">👥 Clientes</a><a href="#referidos">👥 Referidos</a><a href="#duplicados">🔁 Repetidos</a><a href="#inactivos">❌ Inactivos</a><a href="#addCliente">➕ Añadir Cliente</a><a href="#ranking">🏆 Ranking</a><a href="#niveles">🛡️ Niveles</a><a href="#caducidades">📅 Caducidades</a></nav><div class="quick"><h4>Acceso rápido</h4><a href="#addCliente">👤 Añadir Cliente</a><a href="#ranking">🏆 Ver Ranking</a><form method="post"><input type="hidden" name="action" value="export_json"><button>💾 Exportar Backup</button></form></div></aside><main class="main"><header class="header"><div class="admin">🔒 Privado · <a href="?logout=1" style="color:#f5c542;text-decoration:none">Salir</a></div><h1>PANEL DE REFERIDOS <span>MDPRIME</span></h1><p>Sistema profesional de gestión de clientes y referidos</p></header><?php if($msg): ?><div class="notice"><?=h($msg)?></div><?php endif; ?>
 
@@ -2359,5 +2359,5 @@ function copiarCaducadosMDPrime(){
   'activos'=>$totalActivosGlobal,
   'porcentaje_activos'=>$pctActGlobal
 ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?>;</script>
-<script src="assets/apple-app.js?v=5" defer></script>
+<script src="assets/apple-app.js?v=6" defer></script>
 </body></html>
