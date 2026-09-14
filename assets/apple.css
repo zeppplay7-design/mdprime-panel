@@ -1177,3 +1177,112 @@ kbd {
   .modal .refManage { grid-column: 3; grid-row: 1 / 3; }
   .recordDrawer { width: 100vw; }
 }
+
+/* Colecciones Pro v5: todos los registros como filas limpias */
+.clients, .normalesGrid, .inactivosGrid, .duplicadosGrid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 7px !important;
+}
+.minimalCollectionCard {
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255,255,255,.075) !important;
+  border-radius: 16px !important;
+  background: #151517 !important;
+  box-shadow: none !important;
+}
+.minimalCollectionCard::before, .minimalCollectionCard::after { display: none !important; }
+.collectionRow {
+  display: grid;
+  grid-template-columns: 42px minmax(180px,1fr) minmax(105px,.28fr) 76px 36px;
+  gap: 11px;
+  align-items: center;
+  min-height: 68px;
+  padding: 9px 11px 9px 14px;
+  transition: background .16s ease;
+}
+.collectionRow:hover { background: rgba(255,255,255,.025); }
+.collectionAvatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #64d2ff;
+  background: linear-gradient(145deg,rgba(10,132,255,.22),rgba(94,92,230,.13));
+  font-size: 15px;
+  font-weight: 750;
+}
+.collectionIdentity { min-width: 0; display: grid; gap: 3px; }
+.collectionIdentity strong { overflow: hidden; color: #f5f5f7; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.collectionIdentity small { overflow: hidden; color: #737378; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.collectionState {
+  justify-self: start;
+  max-width: 150px;
+  overflow: hidden;
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #a1a1a6;
+  background: rgba(255,255,255,.055);
+  font-size: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collectionPrimary, .collectionMore {
+  min-height: 34px;
+  border: 0;
+  border-radius: 9px !important;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.collectionPrimary { padding: 0 12px; color: #fff; background: #0a84ff; }
+.collectionPrimary:hover { background: #2493ff !important; }
+.collectionMore { width: 34px; padding: 0; color: #8e8e93; background: transparent; letter-spacing: 1px; }
+.collectionMore:hover, .collectionMore.active { color: #fff; background: rgba(255,255,255,.09) !important; }
+.collectionCardDetails {
+  padding: 16px !important;
+  border-top: 1px solid rgba(255,255,255,.07);
+  background: #111113;
+}
+.collectionCardDetails > .badge, .collectionCardDetails > h3 { display: none !important; }
+.collectionCardDetails > .muted { display: inline-block; margin: 0 18px 10px 0; font-size: 11px !important; }
+.collectionCardDetails .metrics { max-width: 430px; margin: 3px 0 12px !important; }
+.collectionCardDetails .miniProgress { max-width: 560px; }
+.collectionCardDetails .prices { max-width: 430px; }
+.collectionCardDetails .note { max-width: 720px; min-height: 0 !important; }
+.collectionCardDetails .clientMainActions,
+.collectionCardDetails .normalActions,
+.collectionCardDetails .inactivoActions {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 7px !important;
+}
+.collectionCardDetails .clientMainActions > *,
+.collectionCardDetails .normalActions > *,
+.collectionCardDetails .inactivoActions > * { flex: 0 1 auto; }
+.collectionCardDetails .btn { min-height: 36px !important; padding: 8px 11px !important; border-radius: 10px !important; font-size: 11px !important; box-shadow: none !important; }
+.minimalCollectionCard.rowExpanded { border-color: rgba(10,132,255,.28) !important; }
+.minimalCollectionCard.rowExpanded .collectionRow { background: rgba(10,132,255,.045); }
+.clientesSearchPanel { display: none !important; }
+.normalesPanel, .inactivosPanel, .duplicadosPanel {
+  padding: 14px !important;
+  border-color: rgba(255,255,255,.075) !important;
+  background: #111113 !important;
+  box-shadow: none !important;
+}
+.normalesHead h2, .inactivosHead h2, .duplicadosHead h2 { font-size: 17px !important; letter-spacing: -.02em; }
+.normalesBadge, .inactivosBadge, .duplicadosBadge { border: 0 !important; color: #8e8e93 !important; background: rgba(255,255,255,.05) !important; font-size: 11px !important; }
+
+@media (max-width: 720px) {
+  .collectionRow { grid-template-columns: 38px minmax(0,1fr) auto 34px; gap: 8px; min-height: 64px; padding-left: 10px; }
+  .collectionAvatar { width: 34px; height: 34px; border-radius: 10px; }
+  .collectionState { display: none; }
+  .collectionPrimary { padding: 0 10px; }
+  .collectionCardDetails { padding: 12px !important; }
+  .collectionCardDetails .metrics, .collectionCardDetails .prices { max-width: none; }
+  .collectionCardDetails .clientMainActions > *, .collectionCardDetails .normalActions > *, .collectionCardDetails .inactivoActions > * { flex: 1 1 46%; }
+}

@@ -314,6 +314,55 @@
     try { if (localStorage.getItem('mdprime-compact') === '1') document.body.classList.add('compactMode'); } catch (_) {}
   }
 
+  function buildMinimalCollections() {
+    const configs = [
+      {selector: '.clients .client', name: 'h3', meta: '.muted', status: '.badge', primary: '.clientMainActions > button:first-child'},
+      {selector: '#clientesNormales .normalCard', name: '.normalNombre', meta: '.normalMeta', status: '.status'},
+      {selector: '#inactivos .inactivoCard', name: '.inactivoNombre', meta: '.inactivoMeta', status: '.inactivoEstado'},
+      {selector: '#duplicados .duplicadoCard', name: '.duplicadoNombre', meta: '.duplicadoMeta', status: '.duplicadoAlert'}
+    ];
+
+    configs.forEach(config => document.querySelectorAll(config.selector).forEach(card => {
+      if (card.dataset.collectionReady) return;
+      card.dataset.collectionReady = '1';
+      card.classList.add('minimalCollectionCard');
+
+      const name = card.querySelector(config.name)?.textContent.trim() || 'Sin nombre';
+      const meta = card.querySelector(config.meta)?.textContent.trim() || 'Sin información adicional';
+      const statusNode = card.querySelector(config.status);
+      const statusText = statusNode?.textContent.trim() || 'Registro';
+      const details = document.createElement('div');
+      details.className = 'collectionCardDetails';
+      [...card.children].forEach(child => details.appendChild(child));
+      details.hidden = true;
+
+      const row = document.createElement('div');
+      row.className = 'collectionRow';
+      const initial = name.charAt(0).toUpperCase();
+      row.innerHTML = `<span class="collectionAvatar" aria-hidden="true">${initial}</span><div class="collectionIdentity"><strong></strong><small></small></div><span class="collectionState"></span><button type="button" class="collectionPrimary">Abrir</button><button type="button" class="collectionMore" aria-label="Más acciones">•••</button>`;
+      row.querySelector('strong').textContent = name;
+      row.querySelector('small').textContent = meta.replace(/^[📱✈️❌🔁🏆💎\s]+/, '');
+      row.querySelector('.collectionState').textContent = statusText.replace(/^[^\p{L}\p{N}]+/u, '');
+      const primary = row.querySelector('.collectionPrimary');
+      const more = row.querySelector('.collectionMore');
+      const originalPrimary = config.primary ? details.querySelector(config.primary) : null;
+
+      const toggleDetails = force => {
+        const opening = typeof force === 'boolean' ? force : details.hidden;
+        details.hidden = !opening;
+        card.classList.toggle('rowExpanded', opening);
+        more.classList.toggle('active', opening);
+        more.textContent = opening ? '×' : '•••';
+      };
+      primary.addEventListener('click', () => {
+        if (originalPrimary) originalPrimary.click();
+        else toggleDetails();
+      });
+      more.addEventListener('click', () => toggleDetails());
+      card.append(row, details);
+    }));
+  }
+
   function buildMinimalDashboard() {
     const dashboard = document.getElementById('dashboard');
     const center = dashboard?.querySelector('.center');
@@ -571,6 +620,7 @@
     buildMinimalDashboard();
     simplifyModals();
     buildCollectionTools();
+    buildMinimalCollections();
     bridgeLegacySearch();
     const params = new URLSearchParams(location.search);
     let remembered = 'dashboard';
