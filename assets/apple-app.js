@@ -85,8 +85,10 @@
   function buildNavigation() {
     const nav = document.querySelector('.sidebar .nav');
     if (!nav) return;
+    const metrics = window.MDPRIME_METRICS || {};
+    const counters = {clientes: metrics.referentes, normales: metrics.normales, referidos: metrics.referidos, duplicados: metrics.duplicados, inactivos: metrics.inactivos};
     nav.innerHTML = Object.keys(views).map(name =>
-      `<a href="#app-${name}" data-route="${name}"><span class="navIcon">${icons[name]}</span><span>${labels[name]}</span></a>`
+      `<a href="#app-${name}" data-route="${name}"><span class="navIcon">${icons[name]}</span><span>${labels[name]}</span>${counters[name] !== undefined ? `<b class="navCount">${counters[name]}</b>` : ''}</a>`
     ).join('');
 
     const quick = document.querySelector('.quick');
@@ -108,7 +110,58 @@
     header.innerHTML = '<button class="mobileMenuButton" type="button" aria-label="Abrir menú">' +
       '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>' +
       '<div class="pageHeading"><span class="pageEyebrow">MDPRIME</span><h1 id="appPageTitle">Resumen</h1><p id="appPageSubtitle">Una visión clara del estado de tu servicio.</p></div>' +
-      '<div class="headerActions"><span class="livePill"><i></i> En línea</span><a class="logoutButton" href="?logout=1">Salir</a></div>';
+      '<div class="headerActions"><button class="commandButton" type="button" aria-label="Abrir centro de comandos"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>Buscar</span><kbd>Ctrl K</kbd></button><span class="livePill"><i></i> En línea</span><a class="logoutButton" href="?logout=1">Salir</a></div>';
+  }
+
+  function buildCommandCenter() {
+    const shell = document.createElement('div');
+    shell.className = 'commandOverlay';
+    shell.setAttribute('aria-hidden', 'true');
+    shell.innerHTML = `<div class="commandCenter" role="dialog" aria-modal="true" aria-label="Centro de comandos">
+      <div class="commandInputWrap"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" placeholder="Ir a una sección…" autocomplete="off"><kbd>Esc</kbd></div>
+      <div class="commandList">${Object.keys(views).map(name => `<button type="button" data-command-route="${name}"><span class="navIcon">${icons[name]}</span><span><b>${labels[name]}</b><small>${views[name].subtitle}</small></span></button>`).join('')}</div>
+      <div class="commandFoot">Usa ↑ ↓ para moverte y Enter para abrir</div>
+    </div>`;
+    document.body.appendChild(shell);
+    return shell;
+  }
+
+  function openCommands() {
+    const overlay = document.querySelector('.commandOverlay');
+    if (!overlay) return;
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
+    const input = overlay.querySelector('input');
+    input.value = '';
+    overlay.querySelectorAll('[data-command-route]').forEach(button => button.hidden = false);
+    setTimeout(() => input.focus(), 30);
+  }
+
+  function closeCommands() {
+    const overlay = document.querySelector('.commandOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  function bindCommandCenter() {
+    const overlay = document.querySelector('.commandOverlay');
+    if (!overlay) return;
+    const input = overlay.querySelector('input');
+    input.addEventListener('input', () => {
+      const query = input.value.trim().toLowerCase();
+      overlay.querySelectorAll('[data-command-route]').forEach(button => {
+        button.hidden = !button.textContent.toLowerCase().includes(query);
+      });
+    });
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) closeCommands();
+      const button = event.target.closest('[data-command-route]');
+      if (button) {
+        setView(button.dataset.commandRoute);
+        closeCommands();
+      }
+    });
   }
 
   function allViewElements() {
@@ -132,6 +185,7 @@
     document.body.dataset.currentView = name;
     document.body.classList.remove('menuOpen');
     if (updateHash) history.replaceState(null, '', '#app-' + name);
+    try { localStorage.setItem('mdprime-last-view', name); } catch (_) {}
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
@@ -143,6 +197,14 @@
         setView(route.dataset.route);
       }
       if (event.target.closest('.mobileMenuButton')) document.body.classList.toggle('menuOpen');
+      if (event.target.closest('.commandButton')) openCommands();
+    });
+    document.addEventListener('keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        openCommands();
+      }
+      if (event.key === 'Escape') closeCommands();
     });
   }
 
@@ -157,6 +219,24 @@
       wrapper.appendChild(table);
     });
     document.querySelectorAll('.panel > h2, .panel > h3').forEach(title => title.classList.add('sectionTitle'));
+    const notice = document.querySelector('.notice');
+    if (notice) {
+      notice.setAttribute('role', 'status');
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'noticeClose';
+      close.textContent = 'Cerrar';
+      close.addEventListener('click', () => notice.remove());
+      notice.appendChild(close);
+    }
+    const top = document.createElement('button');
+    top.type = 'button';
+    top.className = 'backToTop';
+    top.setAttribute('aria-label', 'Volver arriba');
+    top.textContent = '↑';
+    top.addEventListener('click', () => window.scrollTo({top: 0, behavior: 'smooth'}));
+    document.body.appendChild(top);
+    window.addEventListener('scroll', () => top.classList.toggle('visible', window.scrollY > 500), {passive: true});
   }
 
   function bridgeLegacySearch() {
@@ -173,11 +253,15 @@
     collectViewNodes();
     buildNavigation();
     buildTopbar();
+    buildCommandCenter();
     bindNavigation();
+    bindCommandCenter();
     improveContent();
     bridgeLegacySearch();
     const params = new URLSearchParams(location.search);
-    let requested = location.hash.startsWith('#app-') ? location.hash.slice(5) : 'dashboard';
+    let remembered = 'dashboard';
+    try { remembered = localStorage.getItem('mdprime-last-view') || 'dashboard'; } catch (_) {}
+    let requested = location.hash.startsWith('#app-') ? location.hash.slice(5) : remembered;
     if (!location.hash.startsWith('#app-')) {
       if (params.has('pagina_clientes') || params.has('open')) requested = 'clientes';
       else if (params.has('pagina_normales') || params.has('open_normal')) requested = 'normales';

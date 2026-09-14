@@ -2348,5 +2348,13 @@ function copiarCaducadosMDPrime(){
  navigator.clipboard.writeText(lista).then(()=>alert("✅ Lista de caducados copiada"));
 }
 </script>
-<script src="assets/apple-app.js?v=1" defer></script>
+<script>window.MDPRIME_METRICS=<?=json_encode([
+  'referentes'=>$totalClientes,
+  'referidos'=>$totalRefs,
+  'normales'=>$totalNormales,
+  'duplicados'=>$totalDuplicadosReferidos,
+  'inactivos'=>$totalInactivosGlobal,
+  'caducan'=>$caducan7
+], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?>;</script>
+<script src="assets/apple-app.js?v=2" defer></script>
 </body></html>

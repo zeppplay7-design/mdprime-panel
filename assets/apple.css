@@ -549,3 +549,141 @@ body[data-current-view="normales"] #clientesNormales {
   .logoutButton { padding: 0 12px; }
   .pageHeading p { display: none; }
 }
+
+/* Centro de comandos y utilidades Pro */
+.navCount {
+  margin-left: auto;
+  min-width: 28px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: #8e8e93;
+  background: rgba(255,255,255,.07);
+  font-size: 11px;
+  font-weight: 700;
+}
+.nav a.active .navCount { color: #fff; background: rgba(255,255,255,.2); }
+.commandButton {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 13px;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  border-radius: 999px !important;
+  color: #d1d1d6;
+  background: rgba(28,28,30,.82) !important;
+}
+.commandButton svg, .commandInputWrap svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+kbd {
+  padding: 4px 7px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 7px;
+  color: #8e8e93;
+  background: rgba(255,255,255,.06);
+  font: 600 10px/1 -apple-system,BlinkMacSystemFont,sans-serif;
+}
+.commandOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  padding: min(14vh,130px) 18px 30px;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(18px) saturate(120%);
+}
+.commandOverlay.open { display: block; animation: commandFade .18s ease both; }
+.commandCenter {
+  width: min(660px,100%);
+  max-height: min(660px,75vh);
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 24px;
+  background: rgba(24,24,27,.96);
+  box-shadow: 0 40px 120px rgba(0,0,0,.72);
+}
+.commandInputWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  color: #8e8e93;
+}
+.commandInputWrap input {
+  flex: 1;
+  min-height: 42px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  color: #fff !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 18px;
+}
+.commandList {
+  max-height: calc(min(660px,75vh) - 120px);
+  padding: 9px;
+  overflow-y: auto;
+}
+.commandList button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px;
+  border: 0;
+  border-radius: 14px !important;
+  color: #f5f5f7;
+  background: transparent;
+  text-align: left;
+}
+.commandList button:hover, .commandList button:focus { background: rgba(10,132,255,.16) !important; outline: none; }
+.commandList button > span:last-child { display: grid; gap: 3px; }
+.commandList small { color: #8e8e93; font-size: 12px; font-weight: 450; }
+.commandFoot { padding: 11px 16px; border-top: 1px solid rgba(255,255,255,.07); color: #636366; font-size: 11px; }
+.notice { display: flex; align-items: center; gap: 12px; }
+.noticeClose {
+  margin-left: auto;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-size: 12px;
+}
+.backToTop {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 80;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 50% !important;
+  color: #fff;
+  background: rgba(28,28,30,.88);
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: .2s ease !important;
+  backdrop-filter: blur(18px);
+}
+.backToTop.visible { opacity: 1; pointer-events: auto; transform: none; }
+@keyframes commandFade { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 700px) {
+  .commandButton span, .commandButton kbd { display: none; }
+  .commandButton { width: 42px; justify-content: center; padding: 0; }
+  .commandOverlay { padding: 12px; }
+  .commandCenter { max-height: calc(100vh - 24px); }
+  .commandList { max-height: calc(100vh - 140px); }
+  .backToTop { right: 14px; bottom: 14px; }
+}
