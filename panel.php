@@ -2090,7 +2090,7 @@ function mdToggleFechaInactivo(btn){
 </script>
 
 <script id="mdGlobalProDataV13">
-const mdGlobalProReferentesData = [
+window.mdGlobalProReferentesData = [
 <?php foreach($clientes as $c): ?>
   {
     type:"referente",
@@ -2105,7 +2105,7 @@ const mdGlobalProReferentesData = [
 <?php endforeach; ?>
 ];
 
-const mdGlobalProReferidosData = [
+window.mdGlobalProReferidosData = [
 <?php foreach($buscadorRefs as $r): ?>
   {
     type:"referido",
@@ -2121,7 +2121,7 @@ const mdGlobalProReferidosData = [
 <?php endforeach; ?>
 ];
 
-const mdGlobalProNormalesData = [
+window.mdGlobalProNormalesData = [
 <?php foreach($clientesNormales as $cnIndex => $cn): ?>
   {
     type:"normal",
