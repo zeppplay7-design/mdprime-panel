@@ -64,7 +64,7 @@
 
   const labels = {
     dashboard: 'Resumen', clientes: 'Referentes', normales: 'Clientes normales',
-    referidos: 'Buscar usuarios', duplicados: 'Duplicados', inactivos: 'Inactivos',
+    referidos: 'Referidos', duplicados: 'Duplicados', inactivos: 'Inactivos',
     nuevo: 'Añadir referente', niveles: 'Niveles', sigma: 'Sigma'
   };
 
