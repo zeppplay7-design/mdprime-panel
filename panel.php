@@ -2370,5 +2370,5 @@ function copiarCaducadosMDPrime(){
   'activos'=>$totalActivosGlobal,
   'porcentaje_activos'=>$pctActGlobal
 ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?>;</script>
-<script src="assets/apple-app.js?v=12" defer></script>
+<script src="assets/apple-app.js?v=13" defer></script>
 </body></html>
