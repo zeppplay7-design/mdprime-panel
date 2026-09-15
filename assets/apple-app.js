@@ -440,7 +440,7 @@
           card.classList.remove('hasResults');
           return;
         }
-        const matches = data.filter(item => Object.values(item).join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(query)).slice(0, 8);
+        const matches = (config.data() || []).filter(item => JSON.stringify(item).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query)).slice(0, 8);
         card.classList.add('hasResults');
         if (!matches.length) {
           results.innerHTML = '<p>No se encontraron coincidencias</p>';
