@@ -456,7 +456,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $id=(int)($_POST['ref_id']??0);
       $months=(int)($_POST['months']??0);
       if($id && in_array($months,[3,6,12])){
-        $pdo->prepare("UPDATE referidos SET fecha_caducidad = DATE_ADD(COALESCE(NULLIF(fecha_caducidad,'0000-00-00'), NULLIF(fecha_caducidad,''), CURDATE()), INTERVAL ? MONTH), estado='Activo' WHERE id=?")->execute([$months,$id]);
+        $st=$pdo->prepare("SELECT fecha_caducidad FROM referidos WHERE id=?");
+        $st->execute([$id]);
+        $cadActual=(string)($st->fetchColumn() ?: "");
+        $fechaValida=strtotime($cadActual);
+        $base=($fechaValida!==false && $cadActual!=="0000-00-00" && $cadActual>=$today) ? $cadActual : $today;
+        $nueva=(new DateTimeImmutable($base))->modify("+".$months." months")->format("Y-m-d");
+        $pdo->prepare("UPDATE referidos SET fecha_caducidad=?,estado=?,estado_manual=?,fecha_inactivo=NULL,auto_inactivo=0 WHERE id=?")->execute([$nueva,"Activo","Activo",$id]);
         $msg='Referido renovado '.$months.' meses.';
       }
     }
