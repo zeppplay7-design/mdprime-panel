@@ -407,6 +407,63 @@
     if (rankingTitle) rankingTitle.textContent = 'Mejores referentes';
   }
 
+  function buildHomeSearches() {
+    const panel = document.getElementById('mdGlobalProPanel');
+    if (!panel || panel.dataset.tripleSearchReady) return;
+    panel.dataset.tripleSearchReady = '1';
+    panel.className = 'homeSearchPanel';
+    panel.innerHTML = `<div class="homeSearchHead"><div><span>BÚSQUEDA RÁPIDA</span><h2>Encuentra cualquier usuario</h2><p>Tres buscadores independientes para llegar directamente a cada ficha.</p></div><kbd>Ctrl K</kbd></div><div class="homeSearchGrid"></div>`;
+    const grid = panel.querySelector('.homeSearchGrid');
+    const configs = [
+      {key: 'referente', title: 'Referentes', placeholder: 'Nombre, Telegram o contacto…', color: 'blue', data: () => window.mdGlobalProReferentesData || (typeof mdGlobalProReferentesData !== 'undefined' ? mdGlobalProReferentesData : []), subtitle: item => `${item.activos || 0} activos · ${item.contacto || item.telegram || 'Sin contacto'}`},
+      {key: 'referido', title: 'Referidos', placeholder: 'Usuario, referente o caducidad…', color: 'violet', data: () => window.mdGlobalProReferidosData || (typeof mdGlobalProReferidosData !== 'undefined' ? mdGlobalProReferidosData : []), subtitle: item => `${item.referente || 'Sin referente'} · ${item.estado || 'Sin estado'} · ${item.caduca || 'Sin fecha'}`},
+      {key: 'normal', title: 'Usuarios normales', placeholder: 'Nombre, contacto o Telegram…', color: 'green', data: () => window.mdGlobalProNormalesData || (typeof mdGlobalProNormalesData !== 'undefined' ? mdGlobalProNormalesData : []), subtitle: item => `${item.estado || 'Sin estado'} · ${item.caduca || 'Sin fecha'} · ${item.contacto || item.telegram || 'Sin contacto'}`}
+    ];
+
+    configs.forEach(config => {
+      const card = document.createElement('article');
+      card.className = `homeSearchCard ${config.color}`;
+      card.innerHTML = `<header><span class="homeSearchIcon">${icons[config.key === 'referente' ? 'clientes' : config.key === 'referido' ? 'referidos' : 'normales']}</span><div><h3>${config.title}</h3><small></small></div></header><div class="homeSearchInput"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" autocomplete="off"><button type="button" aria-label="Limpiar">×</button></div><div class="homeSearchResults"><p>Escribe para comenzar a buscar</p></div>`;
+      const data = config.data();
+      card.querySelector('header small').textContent = `${data.length} registrados`;
+      const input = card.querySelector('input');
+      const clear = card.querySelector('.homeSearchInput button');
+      const results = card.querySelector('.homeSearchResults');
+      input.placeholder = config.placeholder;
+
+      const render = () => {
+        const query = input.value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        clear.classList.toggle('visible', Boolean(query));
+        results.innerHTML = '';
+        if (!query) {
+          results.innerHTML = '<p>Escribe para comenzar a buscar</p>';
+          card.classList.remove('hasResults');
+          return;
+        }
+        const matches = data.filter(item => Object.values(item).join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(query)).slice(0, 8);
+        card.classList.add('hasResults');
+        if (!matches.length) {
+          results.innerHTML = '<p>No se encontraron coincidencias</p>';
+          return;
+        }
+        matches.forEach(item => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'homeSearchResult';
+          button.innerHTML = '<span><strong></strong><small></small></span><b>›</b>';
+          button.querySelector('strong').textContent = item.nombre || 'Sin nombre';
+          button.querySelector('small').textContent = config.subtitle(item);
+          button.addEventListener('click', () => window.mdProOpenTarget?.(item.id || '', item.modal || '', item.nombre || '', config.key, item.page || 1));
+          results.appendChild(button);
+        });
+      };
+      input.addEventListener('input', render);
+      input.addEventListener('focus', render);
+      clear.addEventListener('click', () => { input.value = ''; render(); input.focus(); });
+      grid.appendChild(card);
+    });
+  }
+
   function simplifyModals() {
     document.querySelectorAll('.modal').forEach(modal => {
       // Los modales nacen dentro de la cuadrícula de referentes. Moverlos al body
@@ -642,7 +699,7 @@
     const original = window.mdProOpenTarget;
     window.mdProOpenTarget = function(id, modalId, nombre, tipo, page) {
       if (tipo === 'normal') setView('normales');
-      else if (modalId) setView('clientes');
+      else if (tipo === 'referente' || modalId) setView('clientes');
       setTimeout(() => original(id, modalId, nombre, tipo, page), 80);
     };
   }
@@ -655,6 +712,7 @@
     bindNavigation();
     bindCommandCenter();
     improveContent();
+    buildHomeSearches();
     buildMinimalDashboard();
     simplifyModals();
     buildCollectionTools();
