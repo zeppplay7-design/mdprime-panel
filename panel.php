@@ -509,8 +509,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $id=(int)($_POST['normal_id']??0);
       $months=(int)($_POST['months']??0);
       if($id && in_array($months,[3,6,12])){
-        $pdo->prepare("UPDATE clientes_normales SET fecha_caducidad = NULL WHERE id = ? AND CAST(fecha_caducidad AS CHAR) = '0000-00-00'")->execute([$id]);
-        $pdo->prepare("UPDATE clientes_normales SET fecha_caducidad = DATE_ADD(CASE WHEN fecha_caducidad IS NOT NULL AND fecha_caducidad >= CURDATE() THEN fecha_caducidad ELSE CURDATE() END, INTERVAL ".$months." MONTH), estado='Activo' WHERE id=?")->execute([$id]);
+        $st=$pdo->prepare("SELECT fecha_caducidad FROM clientes_normales WHERE id=?");
+        $st->execute([$id]);
+        $cadActual=(string)($st->fetchColumn() ?: "");
+        $fechaValida=strtotime($cadActual);
+        $base=($fechaValida!==false && $cadActual!=="0000-00-00" && $cadActual>=$today) ? $cadActual : $today;
+        $nueva=(new DateTimeImmutable($base))->modify("+".$months." months")->format("Y-m-d");
+        $pdo->prepare("UPDATE clientes_normales SET fecha_caducidad=?,estado=? WHERE id=?")->execute([$nueva,"Activo",$id]);
         $msg='Cliente normal renovado '.$months.' meses.';
       }
     }
