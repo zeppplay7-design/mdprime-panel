@@ -563,6 +563,33 @@
           [...card.children].filter(child => child !== top).forEach(child => details.appendChild(child));
           details.hidden = true;
           card.appendChild(details);
+          const actions = details.querySelector('.refActions');
+          if (actions) {
+            const actionTitle = document.createElement('div');
+            actionTitle.className = 'drawerSectionTitle';
+            actionTitle.innerHTML = '<span>Acciones</span><small>Administra este usuario</small>';
+            actions.before(actionTitle);
+            const actionButtons = actions.querySelectorAll('.btn');
+            if (actionButtons[0]) actionButtons[0].textContent = 'Editar datos';
+            if (actionButtons[1]) actionButtons[1].textContent = 'Cambiar estado';
+            if (actionButtons[2]) actionButtons[2].textContent = 'Eliminar';
+          }
+          const renewal = [...details.children].find(child =>
+            !child.classList.contains('note') &&
+            !child.classList.contains('refActions') &&
+            !child.classList.contains('editBox') &&
+            !child.classList.contains('drawerSectionTitle')
+          );
+          if (renewal) {
+            renewal.classList.add('refRenewals');
+            const renewalTitle = document.createElement('div');
+            renewalTitle.className = 'drawerSectionTitle';
+            renewalTitle.innerHTML = '<span>Renovación rápida</span><small>Añade tiempo desde la fecha vigente</small>';
+            renewal.before(renewalTitle);
+            renewal.querySelectorAll('.btn').forEach(button => {
+              button.textContent = button.textContent.replace(/^\+/, '').trim();
+            });
+          }
           const manage = document.createElement('button');
           manage.type = 'button';
           manage.className = 'refManage';
