@@ -1565,3 +1565,11 @@ body .duplicadosGrid.listLayout .collectionRow {
   .homeSearchHead kbd { display: none; }
   .homeSearchHead h2 { font-size: 20px; }
 }
+
+/* Navegación v11: ninguna colección puede atravesar a otra pantalla */
+[data-app-view][hidden],
+.collectionTools[data-app-view][hidden],
+.clients[data-app-view][hidden],
+.mdPagination[data-app-view][hidden] {
+  display: none !important;
+}
