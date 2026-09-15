@@ -265,12 +265,15 @@
       const tools = document.createElement('div');
       tools.className = 'collectionTools';
       tools.dataset.toolsView = view;
+      tools.dataset.appView = view;
       tools.innerHTML = `<div class="collectionSearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" placeholder="Filtrar ${config.label}…" aria-label="Filtrar ${config.label}"></div>
         <div class="collectionMeta"><b>${cards.length}</b><span>${config.label}</span></div>
-        <div class="segmented" aria-label="Tipo de vista"><button type="button" data-layout="grid" class="active" title="Cuadrícula">▦</button><button type="button" data-layout="list" title="Lista">☰</button></div>
-        <button type="button" class="compactToggle" title="Alternar densidad">Compacto</button>
         <button type="button" class="copyVisible" title="Copiar resultados visibles">Copiar</button>`;
       host.parentNode.insertBefore(tools, host);
+      views[view].elements.push(tools);
+
+      const container = document.querySelector(config.container);
+      if (container) container.classList.add('listLayout');
 
       const input = tools.querySelector('input');
       const meta = tools.querySelector('.collectionMeta b');
@@ -289,10 +292,9 @@
       input.addEventListener('input', applyFilter);
       tools.querySelectorAll('[data-layout]').forEach(button => button.addEventListener('click', () => {
         tools.querySelectorAll('[data-layout]').forEach(item => item.classList.toggle('active', item === button));
-        const container = document.querySelector(config.container);
         if (container) container.classList.toggle('listLayout', button.dataset.layout === 'list');
       }));
-      tools.querySelector('.compactToggle').addEventListener('click', () => {
+      tools.querySelector('.compactToggle')?.addEventListener('click', () => {
         document.body.classList.toggle('compactMode');
         try { localStorage.setItem('mdprime-compact', document.body.classList.contains('compactMode') ? '1' : '0'); } catch (_) {}
       });
