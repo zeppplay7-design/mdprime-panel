@@ -1975,6 +1975,23 @@ $copyIna .= "━━━━━━━━━━━━━━━━━━\nTOTAL INACT
 
       <div class="paymentDetected" id="paymentDetected">Escribe un usuario para detectar su tipo y tarifa.</div>
 
+      <div id="paymentManualOptions" hidden>
+        <label>El usuario es nuevo. Selecciona el tipo</label>
+        <div class="paymentChoices paymentTwoChoices" data-group="clientType">
+          <button type="button" class="active" data-value="normal" onclick="mdPaymentChoice(this,'clientType')">👤 Cliente normal</button>
+          <button type="button" data-value="referred" onclick="mdPaymentChoice(this,'clientType')">👥 Cliente referido</button>
+        </div>
+        <div id="paymentManualTier" hidden>
+          <label>Tarifa del referido</label>
+          <div class="paymentChoices paymentFourChoices" data-group="tier">
+            <button type="button" class="active" data-value="COBRE" onclick="mdPaymentChoice(this,'tier')">🥉 Cobre</button>
+            <button type="button" data-value="PLATA" onclick="mdPaymentChoice(this,'tier')">🥈 Plata</button>
+            <button type="button" data-value="ORO" onclick="mdPaymentChoice(this,'tier')">🥇 Oro</button>
+            <button type="button" data-value="DIAMANTE" onclick="mdPaymentChoice(this,'tier')">💎 Diamante</button>
+          </div>
+        </div>
+      </div>
+
       <div id="paymentNormalUsers" hidden>
         <label>Número de usuarios</label>
         <div class="paymentChoices" data-group="users">
