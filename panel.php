@@ -236,6 +236,8 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS clientes_normales_backups(id BIGINT AUTO_
 $pdo->exec("CREATE TABLE IF NOT EXISTS configuracion_sigma(id TINYINT PRIMARY KEY,token LONGTEXT NULL,actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $pdo->exec("INSERT IGNORE INTO configuracion_sigma(id,token) VALUES(1,NULL)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS configuracion_niveles(id INT AUTO_INCREMENT PRIMARY KEY,nivel VARCHAR(50),min_activos INT,trimestral DECIMAL(10,2),semestral DECIMAL(10,2),anual DECIMAL(10,2)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("CREATE TABLE IF NOT EXISTS configuracion_pagos(id TINYINT PRIMARY KEY,ultimo_numero INT NOT NULL DEFAULT 224,actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("INSERT IGNORE INTO configuracion_pagos(id,ultimo_numero) VALUES(1,224)");
 foreach(['contacto'=>"ALTER TABLE clientes ADD contacto VARCHAR(150) DEFAULT ''",'telefono'=>"ALTER TABLE clientes ADD telefono VARCHAR(150) DEFAULT ''",'telegram'=>"ALTER TABLE clientes ADD telegram VARCHAR(100) DEFAULT ''",'nota'=>"ALTER TABLE clientes ADD nota TEXT"] as $c=>$sql){ if(!hasCol($pdo,'clientes',$c)) $pdo->exec($sql); }
 foreach(['fecha_alta'=>"ALTER TABLE referidos ADD fecha_alta DATE NULL",'fecha_caducidad'=>"ALTER TABLE referidos ADD fecha_caducidad DATE NULL",'estado'=>"ALTER TABLE referidos ADD estado VARCHAR(20) DEFAULT 'Activo'",'nota'=>"ALTER TABLE referidos ADD nota TEXT"] as $c=>$sql){ if(!hasCol($pdo,'referidos',$c)) $pdo->exec($sql); }
 foreach(['contacto'=>"ALTER TABLE clientes_normales ADD contacto VARCHAR(150) DEFAULT ''",'telefono'=>"ALTER TABLE clientes_normales ADD telefono VARCHAR(150) DEFAULT ''",'telegram'=>"ALTER TABLE clientes_normales ADD telegram VARCHAR(100) DEFAULT ''",'fecha_alta'=>"ALTER TABLE clientes_normales ADD fecha_alta DATE NULL",'fecha_caducidad'=>"ALTER TABLE clientes_normales ADD fecha_caducidad DATE NULL",'estado'=>"ALTER TABLE clientes_normales ADD estado VARCHAR(20) DEFAULT 'Activo'",'nota'=>"ALTER TABLE clientes_normales ADD nota TEXT"] as $c=>$sql){ if(!hasCol($pdo,'clientes_normales',$c)) $pdo->exec($sql); }
@@ -378,6 +380,23 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     exit('La sesión ha caducado. Recarga la página y vuelve a intentarlo.');
   }
   $a=$_POST['action']??'';
+  if($a==='payment_next_request'){
+    header('Content-Type: application/json; charset=utf-8');
+    try{
+      $pdo->beginTransaction();
+      $ultimo=(int)$pdo->query("SELECT ultimo_numero FROM configuracion_pagos WHERE id=1 FOR UPDATE")->fetchColumn();
+      $siguiente=max(225,$ultimo+1);
+      $st=$pdo->prepare("UPDATE configuracion_pagos SET ultimo_numero=? WHERE id=1");
+      $st->execute([$siguiente]);
+      $pdo->commit();
+      echo json_encode(['ok'=>true,'number'=>$siguiente],JSON_UNESCAPED_UNICODE);
+    }catch(Throwable $e){
+      if($pdo->inTransaction())$pdo->rollBack();
+      http_response_code(500);
+      echo json_encode(['ok'=>false,'error'=>'No se pudo reservar el número de solicitud.'],JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+  }
   try{
     if($a==='add_cliente'){$nombre=clean($_POST['nombre']??'');$contacto=clean($_POST['contacto']??'');$telegram=clean($_POST['telegram']??'');$telegram=ltrim($telegram,'@');$nota=clean($_POST['nota']??'');if($nombre!==''){$pdo->prepare("INSERT INTO clientes(nombre,contacto,telefono,telegram,nota) VALUES(?,?,?,?,?)")->execute([$nombre,$contacto,$contacto,$telegram,$nota]);$msg='Cliente añadido.';}}
     if($a==='update_cliente'){$id=(int)($_POST['cliente_id']??0);$nombre=clean($_POST['nombre']??'');$contacto=clean($_POST['contacto']??'');$telegram=clean($_POST['telegram']??'');$telegram=ltrim($telegram,'@');$nota=clean($_POST['nota']??'');if($id&&$nombre!==''){$pdo->prepare("UPDATE clientes SET nombre=?,contacto=?,telefono=?,telegram=?,nota=? WHERE id=?")->execute([$nombre,$contacto,$contacto,$telegram,$nota,$id]);$msg='Perfil del referente actualizado.';}}
@@ -666,6 +685,32 @@ $totalNormalesInactivos=0;
 foreach($clientesNormales as $cn){
   if(($cn['estado']??'')==='Activo' && (empty($cn['fecha_caducidad']) || $cn['fecha_caducidad'] >= $today)) $totalNormalesActivos++;
   else $totalNormalesInactivos++;
+}
+
+/* Directorio compacto para el generador de justificantes de pago. */
+$paymentActivosPorCliente=[];
+foreach($clientes as $pc){$paymentActivosPorCliente[(int)$pc['id']]=(int)$pc['activos'];}
+$paymentUsers=[];
+foreach($buscadorRefs as $pr){
+  $activos=$paymentActivosPorCliente[(int)$pr['cliente_id_real']]??0;
+  $nivel=nivelActual($activos,$niveles);
+  $nombreNivel=strtoupper((string)$nivel['nivel']);
+  if($nombreNivel==='PLATINUM')$nombreNivel='DIAMANTE';
+  $paymentUsers[]=[
+    'name'=>(string)$pr['nombre'],
+    'type'=>'referred',
+    'referrer'=>(string)$pr['cliente_nombre'],
+    'active'=>$activos,
+    'tier'=>$nombreNivel,
+    'prices'=>[
+      '3'=>(float)$nivel['trimestral'],
+      '6'=>(float)$nivel['semestral'],
+      '12'=>(float)$nivel['anual'],
+    ],
+  ];
+}
+foreach($clientesNormales as $pn){
+  $paymentUsers[]=['name'=>(string)$pn['nombre'],'type'=>'normal','referrer'=>'','active'=>0,'tier'=>'NORMAL','prices'=>[]];
 }
 
 $sigmaCfg=$pdo->query("SELECT token,actualizado_en FROM configuracion_sigma WHERE id=1 LIMIT 1")->fetch() ?: ['token'=>null,'actualizado_en'=>null];
@@ -1582,8 +1627,9 @@ function pageUrl($key, $value){ $q=$_GET; $q[$key]=max(1,(int)$value); return $_
 }
 </style>
 <link rel="stylesheet" href="assets/apple.css?v=12">
+<link rel="stylesheet" href="assets/payment-generator.css?v=1">
 </head><body>
-<div class="app"><aside class="sidebar"><div class="logo">MD<small>PRIME</small></div><nav class="nav"><a class="active" href="#dashboard">🏠 Dashboard</a><a href="#clientes">👥 Clientes</a><a href="#referidos">👥 Referidos</a><a href="#duplicados">🔁 Repetidos</a><a href="#inactivos">❌ Inactivos</a><a href="#addCliente">➕ Añadir Cliente</a><a href="#ranking">🏆 Ranking</a><a href="#niveles">🛡️ Niveles</a><a href="#caducidades">📅 Caducidades</a></nav><div class="quick"><h4>Acceso rápido</h4><a href="#addCliente">👤 Añadir Cliente</a><a href="#ranking">🏆 Ver Ranking</a><form method="post"><input type="hidden" name="action" value="export_json"><button>💾 Exportar Backup</button></form></div></aside><main class="main"><header class="header"><div class="admin">🔒 Privado · <a href="?logout=1" style="color:#f5c542;text-decoration:none">Salir</a></div><h1>PANEL DE REFERIDOS <span>MDPRIME</span></h1><p>Sistema profesional de gestión de clientes y referidos</p></header><?php if($msg): ?><div class="notice"><?=h($msg)?></div><?php endif; ?>
+<div class="app"><aside class="sidebar"><div class="logo">MD<small>PRIME</small></div><nav class="nav"><a class="active" href="#dashboard">🏠 Dashboard</a><a href="#generadorPagos">🧾 Generador de pagos</a><a href="#clientes">👥 Clientes</a><a href="#referidos">👥 Referidos</a><a href="#duplicados">🔁 Repetidos</a><a href="#inactivos">❌ Inactivos</a><a href="#addCliente">➕ Añadir Cliente</a><a href="#ranking">🏆 Ranking</a><a href="#niveles">🛡️ Niveles</a><a href="#caducidades">📅 Caducidades</a></nav><div class="quick"><h4>Acceso rápido</h4><a href="#generadorPagos">🧾 Crear justificante</a><a href="#addCliente">👤 Añadir Cliente</a><a href="#ranking">🏆 Ver Ranking</a><form method="post"><input type="hidden" name="action" value="export_json"><button>💾 Exportar Backup</button></form></div></aside><main class="main"><header class="header"><div class="admin">🔒 Privado · <a href="?logout=1" style="color:#f5c542;text-decoration:none">Salir</a></div><h1>PANEL DE REFERIDOS <span>MDPRIME</span></h1><p>Sistema profesional de gestión de clientes y referidos</p></header><?php if($msg): ?><div class="notice"><?=h($msg)?></div><?php endif; ?>
 
 <section class="mdGlobalProPanel" id="mdGlobalProPanel">
   <div class="mdGlobalProHead">
@@ -1905,7 +1951,79 @@ $copyIna .= "━━━━━━━━━━━━━━━━━━\nTOTAL INACT
   <a class="btn small <?= $paginaClientes >= $totalPagClientes ? 'disabled' : '' ?>" href="<?=h(pageUrl('pagina_clientes', $paginaClientes+1))?>#clientes">Siguiente ➜</a>
 </div>
 <?php endif; ?>
-</main></div><nav class="mobileNav" aria-label="Navegación móvil"><a href="#dashboard">Inicio</a><a href="#clientes">Clientes</a><a href="#addCliente">Añadir</a><a href="#duplicados">Repetidos</a></nav><script>const MD_CSRF=<?=json_encode($csrfToken, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?>;document.querySelectorAll('form[method="post"],form[method="POST"]').forEach(form=>{if(!form.querySelector('input[name="csrf_token"]')){const input=document.createElement('input');input.type='hidden';input.name='csrf_token';input.value=MD_CSRF;form.prepend(input);}});let sy=0;function openM(id,target){sy=scrollY;const modal=document.getElementById(id);if(!modal)return;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>{if(target==='add'){let e=document.getElementById('add_'+id);if(e)e.scrollIntoView({behavior:'smooth',block:'start'});}},120)}function closeM(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.remove('open');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';scrollTo(0,sy)}document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.modal.open').forEach(m=>{m.classList.remove('open');m.setAttribute('aria-hidden','true')});document.body.style.overflow='';}});function filtrarClientes(){let q=(document.getElementById('buscarCliente').value||'').toLowerCase();document.querySelectorAll('.client[data-search]').forEach(c=>{c.style.display=c.dataset.search.includes(q)?'block':'none';});}</script>
+<section class="paymentGenerator panel" id="generadorPagos">
+  <div class="paymentGeneratorHead">
+    <div>
+      <span class="paymentEyebrow">MDPRIME · P2P</span>
+      <h2>🧾 GENERADOR DE PAGOS</h2>
+      <p>Selecciona el tipo, completa los datos y copia el justificante terminado.</p>
+    </div>
+    <span class="paymentSecure">🔒 Numeración automática</span>
+  </div>
+
+  <div class="paymentTypeTabs" role="tablist" aria-label="Tipo de justificante">
+    <button class="paymentTypeTab active" id="paymentUserTab" type="button" onclick="mdPaymentShow('user')">👤 Usuario P2P</button>
+    <button class="paymentTypeTab" id="paymentResellerTab" type="button" onclick="mdPaymentShow('reseller')">💼 Reseller P2P</button>
+  </div>
+
+  <div class="paymentWorkspace">
+    <div class="paymentFormCard" id="paymentUserForm">
+      <h3>Pago de usuario</h3>
+      <label for="paymentUserName">Usuario</label>
+      <input id="paymentUserName" list="paymentUserList" autocomplete="off" placeholder="Escribe o selecciona el usuario" oninput="mdPaymentDetectUser()">
+      <datalist id="paymentUserList"><?php foreach($paymentUsers as $pu): ?><option value="<?=h($pu['name'])?>"><?=h($pu['type']==='referred'?'Referido de '.$pu['referrer']:'Cliente normal')?></option><?php endforeach; ?></datalist>
+
+      <div class="paymentDetected" id="paymentDetected">Escribe un usuario para detectar su tipo y tarifa.</div>
+
+      <div id="paymentNormalUsers" hidden>
+        <label>Número de usuarios</label>
+        <div class="paymentChoices" data-group="users">
+          <button type="button" class="active" data-value="1" onclick="mdPaymentChoice(this,'users')">1 usuario</button>
+          <button type="button" data-value="2" onclick="mdPaymentChoice(this,'users')">2 usuarios</button>
+          <button type="button" data-value="3" onclick="mdPaymentChoice(this,'users')">3 usuarios</button>
+        </div>
+      </div>
+
+      <label>Duración</label>
+      <div class="paymentChoices" data-group="months">
+        <button type="button" class="active" data-value="3" onclick="mdPaymentChoice(this,'months')">3 meses</button>
+        <button type="button" data-value="6" onclick="mdPaymentChoice(this,'months')">6 meses</button>
+        <button type="button" data-value="12" onclick="mdPaymentChoice(this,'months')">12 meses</button>
+      </div>
+
+      <div class="paymentSummary" id="paymentUserSummary">
+        <div><span>Importe</span><strong>—</strong></div>
+        <div><span>Nueva caducidad</span><strong>—</strong></div>
+      </div>
+      <button class="btn green paymentGenerate" type="button" onclick="mdPaymentGenerateUser()">✅ Generar pago aprobado</button>
+    </div>
+
+    <div class="paymentFormCard" id="paymentResellerForm" hidden>
+      <h3>Pago de reseller</h3>
+      <label for="paymentResellerName">Usuario reseller</label>
+      <input id="paymentResellerName" autocomplete="off" placeholder="Nombre del reseller">
+      <div class="paymentTwoCols">
+        <div><label for="paymentCredits">Créditos añadidos</label><input id="paymentCredits" type="number" min="1" step="1" inputmode="numeric" placeholder="Ej: 100"></div>
+        <div><label for="paymentResellerAmount">Importe</label><div class="paymentMoney"><input id="paymentResellerAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Ej: 250"><span>€</span></div></div>
+      </div>
+      <button class="btn green paymentGenerate" type="button" onclick="mdPaymentGenerateReseller()">✅ Generar pago aprobado</button>
+    </div>
+
+    <div class="paymentResultCard" id="paymentResultCard">
+      <div class="paymentEmpty" id="paymentEmpty"><span>🧾</span><strong>Tu plantilla aparecerá aquí</strong><small>Lista para copiar y enviar</small></div>
+      <div id="paymentReady" hidden>
+        <div class="paymentResultHead"><h3>✅ Plantilla preparada</h3><span id="paymentRequestBadge">#---</span></div>
+        <textarea id="paymentResult" readonly aria-label="Plantilla generada"></textarea>
+        <div class="paymentResultActions">
+          <button class="btn green" type="button" onclick="mdPaymentCopy()">📋 Copiar plantilla</button>
+          <button class="btn dark" type="button" onclick="mdPaymentReset()">✨ Crear otra</button>
+        </div>
+        <div class="paymentCopyStatus" id="paymentCopyStatus"></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main></div><nav class="mobileNav" aria-label="Navegación móvil"><a href="#dashboard">Inicio</a><a href="#generadorPagos">Pagos</a><a href="#clientes">Clientes</a><a href="#addCliente">Añadir</a><a href="#duplicados">Repetidos</a></nav><script>const MD_CSRF=<?=json_encode($csrfToken, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?>;document.querySelectorAll('form[method="post"],form[method="POST"]').forEach(form=>{if(!form.querySelector('input[name="csrf_token"]')){const input=document.createElement('input');input.type='hidden';input.name='csrf_token';input.value=MD_CSRF;form.prepend(input);}});let sy=0;function openM(id,target){sy=scrollY;const modal=document.getElementById(id);if(!modal)return;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';setTimeout(()=>{if(target==='add'){let e=document.getElementById('add_'+id);if(e)e.scrollIntoView({behavior:'smooth',block:'start'});}},120)}function closeM(id){const modal=document.getElementById(id);if(!modal)return;modal.classList.remove('open');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';scrollTo(0,sy)}document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.modal.open').forEach(m=>{m.classList.remove('open');m.setAttribute('aria-hidden','true')});document.body.style.overflow='';}});function filtrarClientes(){let q=(document.getElementById('buscarCliente').value||'').toLowerCase();document.querySelectorAll('.client[data-search]').forEach(c=>{c.style.display=c.dataset.search.includes(q)?'block':'none';});}</script>
 <style>
 /* ===== MDPRIME FIX FINAL: mantener modal abierto + scroll móvil ===== */
 @media(max-width:760px){
@@ -2370,5 +2488,7 @@ function copiarCaducadosMDPrime(){
   'activos'=>$totalActivosGlobal,
   'porcentaje_activos'=>$pctActGlobal
 ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?>;</script>
+<script>window.MD_PAYMENT_USERS=<?=json_encode($paymentUsers,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?>;</script>
+<script src="assets/payment-generator.js?v=1" defer></script>
 <script src="assets/apple-app.js?v=13" defer></script>
 </body></html>
